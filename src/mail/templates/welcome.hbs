@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Bienvenido a El Predio!</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #059669;
+            text-align: center;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .cta-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .features {
+            background-color: #f8fafc;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }
+        .features h3 {
+            color: #1e3a8a;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        .footer {
+            background-color: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-links {
+            margin-top: 15px;
+        }
+        .footer-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .welcome-badge {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 48px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 12px 25px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎾 EL PREDIO</div>
+            <div class="tagline">Tu plataforma de reserva de canchas</div>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-badge">🎉</div>
+            
+            <div class="greeting">¡Bienvenido {{firstName}}!</div>
+            
+            <div class="message">
+                Tu cuenta ha sido verificada exitosamente. ¡Ya eres parte de la comunidad de <strong>El Predio</strong>!
+            </div>
+            
+            <div class="message">
+                Ahora puedes disfrutar de todas nuestras funcionalidades y comenzar a reservar tus canchas favoritas.
+            </div>
+            
+            <div class="features">
+                <h3>🚀 ¿Qué puedes hacer ahora?</h3>
+                <ul class="feature-list">
+                    <li>🎾 <strong>Reservar canchas:</strong> Tenis, fútbol, básquet y más</li>
+                    <li>📅 <strong>Gestionar reservas:</strong> Ver, modificar o cancelar fácilmente</li>
+                    <li>👥 <strong>Crear grupos:</strong> Organiza partidos con amigos</li>
+                    <li>💳 <strong>Pagos seguros:</strong> Sistema de pagos integrado</li>
+                    <li>📱 <strong>Notificaciones:</strong> Recordatorios de tus reservas</li>
+                    <li>⭐ <strong>Sistema de puntos:</strong> Gana beneficios por tu fidelidad</li>
+                </ul>
+            </div>
+            
+            <div class="cta-section">
+                <a href="{{loginUrl}}" class="cta-button">
+                    🎾 Comenzar a reservar
+                </a>
+            </div>
+            
+            <div class="message">
+                Si tienes alguna pregunta o necesitas ayuda, nuestro equipo de soporte está aquí para asistirte. ¡No dudes en contactarnos!
+            </div>
+            
+            <div class="message">
+                <strong>¡Que disfrutes tu experiencia en El Predio!</strong>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div>
+                © 2025 El Predio. Todos los derechos reservados.
+            </div>
+            <div class="footer-links">
+                <a href="#">Política de Privacidad</a> |
+                <a href="#">Términos de Servicio</a> |
+                <a href="#">Ayuda</a> |
+                <a href="#">Contacto</a>
+            </div>
+            <div style="margin-top: 10px;">
+                📧 support@elpredio.com | 📞 +1 (555) 123-4567
+            </div>
+            <div style="margin-top: 10px; color: #999;">
+                Síguenos: 
+                <a href="#" style="color: #3b82f6;">Facebook</a> | 
+                <a href="#" style="color: #3b82f6;">Instagram</a> | 
+                <a href="#" style="color: #3b82f6;">Twitter</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

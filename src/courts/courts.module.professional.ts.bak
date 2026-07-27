@@ -1,0 +1,29 @@
+/**
+ * Professional Courts Module
+ * Demonstrates proper module organization with professional patterns
+ */
+
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../database/database.module';
+import { LoggerModule } from '../shared/utils/logger.module';
+
+// Professional implementations
+import { CourtsServiceProfessional } from './courts.service.professional';
+import { CourtsControllerProfessional } from './courts.controller.professional';
+
+@Module({
+  imports: [
+    DatabaseModule,
+    LoggerModule
+  ],
+  controllers: [
+    CourtsControllerProfessional
+  ],
+  providers: [
+    CourtsServiceProfessional
+  ],
+  exports: [
+    CourtsServiceProfessional
+  ]
+})
+export class CourtsProfessionalModule {}

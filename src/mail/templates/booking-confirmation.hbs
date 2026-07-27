@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmación de Reserva - El Predio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #059669;
+            text-align: center;
+        }
+        .confirmation-badge {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 48px;
+        }
+        .booking-details {
+            background-color: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .booking-details h3 {
+            color: #1e3a8a;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #374151;
+        }
+        .detail-value {
+            color: #059669;
+            font-weight: 500;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        .important-info {
+            background-color: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 4px;
+        }
+        .important-info h4 {
+            color: #1e3a8a;
+            margin-top: 0;
+            font-size: 16px;
+        }
+        .important-info ul {
+            color: #1e40af;
+            margin-bottom: 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .cta-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .footer {
+            background-color: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-links {
+            margin-top: 15px;
+        }
+        .footer-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .detail-value {
+                margin-top: 5px;
+            }
+            .cta-button {
+                padding: 12px 25px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎾 EL PREDIO</div>
+            <div class="tagline">Tu plataforma de reserva de canchas</div>
+        </div>
+        
+        <div class="content">
+            <div class="confirmation-badge">✅</div>
+            
+            <div class="greeting">¡Reserva confirmada!</div>
+            
+            <div class="message">
+                Hola <strong>{{firstName}}</strong>, tu reserva ha sido confirmada exitosamente. ¡Nos vemos en la cancha!
+            </div>
+            
+            <div class="booking-details">
+                <h3>📋 Detalles de tu reserva</h3>
+                
+                <div class="detail-row">
+                    <span class="detail-label">🏟️ Cancha:</span>
+                    <span class="detail-value">{{courtName}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">📅 Fecha:</span>
+                    <span class="detail-value">{{bookingDate}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">⏰ Horario:</span>
+                    <span class="detail-value">{{timeSlot}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">⏱️ Duración:</span>
+                    <span class="detail-value">{{duration}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">👥 Jugadores:</span>
+                    <span class="detail-value">{{playerCount}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">💰 Total:</span>
+                    <span class="detail-value">${{totalAmount}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">🔢 ID de Reserva:</span>
+                    <span class="detail-value">{{bookingId}}</span>
+                </div>
+            </div>
+            
+            <div class="important-info">
+                <h4>📝 Información importante:</h4>
+                <ul>
+                    <li>Llega <strong>15 minutos antes</strong> de tu horario reservado</li>
+                    <li>Trae tu <strong>documento de identidad</strong> para el registro</li>
+                    <li>Puedes cancelar hasta <strong>4 horas antes</strong> sin penalización</li>
+                    <li>En caso de lluvia, la reserva se puede reprogramar sin costo</li>
+                    <li>Se requiere el uso de <strong>calzado deportivo apropiado</strong></li>
+                </ul>
+            </div>
+            
+            <div class="cta-section">
+                <a href="{{manageBookingUrl}}" class="cta-button">
+                    📱 Gestionar mi reserva
+                </a>
+            </div>
+            
+            <div class="message">
+                ¿Necesitas hacer cambios o tienes alguna pregunta? Puedes gestionar tu reserva desde tu cuenta o contactarnos directamente.
+            </div>
+            
+            <div class="message">
+                <strong>¡Que disfrutes tu partido en El Predio! 🎾</strong>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div>
+                © 2025 El Predio. Todos los derechos reservados.
+            </div>
+            <div class="footer-links">
+                <a href="#">Mis Reservas</a> |
+                <a href="#">Políticas de Cancelación</a> |
+                <a href="#">Contacto</a>
+            </div>
+            <div style="margin-top: 10px;">
+                📧 reservas@elpredio.com | 📞 +1 (555) 123-4567
+            </div>
+            <div style="margin-top: 10px; color: #999;">
+                📍 Dirección del complejo: Av. Deportes 123, Ciudad Deportiva
+            </div>
+        </div>
+    </div>
+</body>
+</html>

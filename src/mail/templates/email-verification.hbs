@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifica tu cuenta - El Predio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #1e3a8a;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: #555;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            transition: transform 0.2s;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .cta-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .expiry {
+            font-size: 14px;
+            color: #666;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .footer {
+            background-color: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-links {
+            margin-top: 15px;
+        }
+        .footer-links a {
+            color: #3b82f6;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        .security-note {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #92400e;
+        }
+        @media only screen and (max-width: 600px) {
+            .content {
+                padding: 30px 20px;
+            }
+            .cta-button {
+                padding: 12px 25px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎾 EL PREDIO</div>
+            <div class="tagline">Tu plataforma de reserva de canchas</div>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">¡Hola {{firstName}} {{lastName}}!</div>
+            
+            <div class="message">
+                ¡Bienvenido a <strong>El Predio</strong>! Estamos emocionados de tenerte en nuestra comunidad de amantes del deporte.
+            </div>
+            
+            <div class="message">
+                Para completar tu registro y comenzar a reservar canchas, necesitamos verificar tu dirección de correo electrónico. Solo haz clic en el botón de abajo:
+            </div>
+            
+            <div class="cta-section">
+                <a href="{{verificationUrl}}" class="cta-button">
+                    ✅ Verificar mi cuenta
+                </a>
+            </div>
+            
+            <div class="expiry">
+                Este enlace expirará en {{expiresIn}}
+            </div>
+            
+            <div class="security-note">
+                <strong>⚠️ Nota de seguridad:</strong> Si no creaste una cuenta en El Predio, puedes ignorar este email de forma segura.
+            </div>
+            
+            <div class="message">
+                Una vez verificada tu cuenta, podrás:
+                <ul>
+                    <li>🎾 Reservar canchas de tenis, fútbol y más</li>
+                    <li>📅 Gestionar tus reservas fácilmente</li>
+                    <li>👥 Conectar con otros deportistas</li>
+                    <li>💳 Realizar pagos seguros online</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div>
+                © 2025 El Predio. Todos los derechos reservados.
+            </div>
+            <div class="footer-links">
+                <a href="#">Política de Privacidad</a> |
+                <a href="#">Términos de Servicio</a> |
+                <a href="#">Contacto</a>
+            </div>
+            <div style="margin-top: 10px;">
+                📧 noreply@elpredio.com | 📞 +1 (555) 123-4567
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,239 @@
+/**
+ * Professional Courts Service
+ * Demonstrates migration to new architecture patterns
+ */
+
+import { Injectable } from '@nestjs/common';
+import { eq, and, desc } from 'drizzle-orm';
+import { DrizzleService } from '../database/drizzle.service';
+import { courts, Court, NewCourt } from '../database/schema';
+import { CreateCourtDto, UpdateCourtDto, CourtResponseDto } from './dto';
+
+// Import our professional patterns
+import { BaseService } from '../core/base/base.service';
+import { LoggerService } from '../shared/utils/logger.service';
+import { Result, Success, Failure } from '../core/types/result';
+import { CourtId, createCourtId } from '../core/types/branded-types';
+import {
+  ValidationException,
+  ResourceNotFoundException,
+  BusinessLogicException
+} from '../core/exceptions';
+
+@Injectable()
+export class CourtsServiceProfessional extends BaseService {
+  constructor(
+    private readonly drizzle: DrizzleService,
+    logger: LoggerService
+  ) {
+    super(logger);
+    this.logger.setContext('CourtsService');
+  }
+
+  async createCourt(dto: CreateCourtDto): Promise<Result<CourtResponseDto, ValidationException | BusinessLogicException>> {
+    this.logger.info('Creating new court', { courtName: dto.name });
+
+    try {
+      // Check if court with same name already exists
+      const existingCourt = await this.drizzle.db
+        .select()
+        .from(courts)
+        .where(eq(courts.name, dto.name))
+        .limit(1);
+
+      if (existingCourt.length > 0) {
+        const error = new BusinessLogicException(
+          `Court with name '${dto.name}' already exists`,
+          'COURT_ALREADY_EXISTS',
+          { courtName: dto.name }
+        );
+        this.logger.warn('Court creation failed - name already exists', { courtName: dto.name });
+        return new Failure(error);
+      }
+
+      // Validate business rules
+      const validationResult = this.validateCourtData(dto);
+      if (!validationResult.isSuccess) {
+        return validationResult;
+      }
+
+      // Create court data
+      const courtData: NewCourt = {
+        name: dto.name,
+        description: dto.description || null,
+        imageUrl: dto.imageUrl || null,
+        pricePerHour: dto.pricePerHour,
+        type: dto.type,
+        surface: dto.surface,
+        minPlayers: dto.minPlayers || 2,
+        maxPlayers: dto.maxPlayers,
+        openingTime: dto.openingTime || '08:00',
+        closingTime: dto.closingTime || '22:00',
+        availableDays: dto.availableDays || 'Mon,Tue,Wed,Thu,Fri,Sat,Sun',
+        isActive: dto.isActive ?? true
+      };
+
+      // Insert court
+      const [createdCourt] = await this.drizzle.db
+        .insert(courts)
+        .values(courtData)
+        .returning();
+
+      if (!createdCourt) {
+        const error = new BusinessLogicException(
+          'Failed to create court',
+          'COURT_CREATION_FAILED'
+        );
+        this.logger.error('Court creation failed - database insertion failed', { courtData });
+        return new Failure(error);
+      }
+
+      const responseDto = this.mapToResponseDto(createdCourt);
+      this.logger.info('Court created successfully', {
+        courtId: createdCourt.id,
+        courtName: createdCourt.name
+      });
+
+      return new Success(responseDto);
+
+    } catch (error) {
+      const exception = new BusinessLogicException(
+        'Failed to create court',
+        'COURT_CREATION_ERROR',
+        { originalError: error }
+      );
+      this.logger.error('Court creation failed with unexpected error', error as Error, { dto });
+      return new Failure(exception);
+    }
+  }
+
+  async findCourtById(id: string): Promise<Result<CourtResponseDto, ResourceNotFoundException>> {
+    const courtId = createCourtId(id);
+    this.logger.info('Finding court by ID', { courtId });
+
+    try {
+      const [court] = await this.drizzle.db
+        .select()
+        .from(courts)
+        .where(eq(courts.id, id))
+        .limit(1);
+
+      if (!court) {
+        const error = new ResourceNotFoundException(
+          'Court',
+          courtId,
+          'Court not found'
+        );
+        this.logger.warn('Court not found', { courtId });
+        return new Failure(error);
+      }
+
+      const responseDto = this.mapToResponseDto(court);
+      this.logger.info('Court found successfully', { courtId, courtName: court.name });
+
+      return new Success(responseDto);
+
+    } catch (error) {
+      const exception = new BusinessLogicException(
+        'Failed to find court',
+        'COURT_FIND_ERROR',
+        { courtId, originalError: error }
+      );
+      this.logger.error('Court find failed with unexpected error', error as Error, { courtId });
+      return new Failure(exception);
+    }
+  }
+
+  async getAllCourts(): Promise<Result<CourtResponseDto[], never>> {
+    this.logger.info('Retrieving all courts');
+
+    try {
+      const courtList = await this.drizzle.db
+        .select()
+        .from(courts)
+        .orderBy(desc(courts.createdAt));
+
+      const responseDtos = courtList.map(court => this.mapToResponseDto(court));
+      this.logger.info('Courts retrieved successfully', { count: courtList.length });
+
+      return new Success(responseDtos);
+
+    } catch (error) {
+      this.logger.error('Failed to retrieve courts', error as Error);
+      // Since this is a read operation, we return empty array instead of failing
+      return new Success([]);
+    }
+  }
+
+  private validateCourtData(dto: CreateCourtDto): Result<void, ValidationException> {
+    const errors: string[] = [];
+
+    // Validate min/max players
+    if (dto.minPlayers && dto.maxPlayers && dto.minPlayers > dto.maxPlayers) {
+      errors.push('minPlayers cannot be greater than maxPlayers');
+    }
+
+    // Validate time format and logic
+    if (dto.openingTime && dto.closingTime) {
+      if (!this.isValidTimeFormat(dto.openingTime)) {
+        errors.push('openingTime must be in HH:MM format');
+      }
+      if (!this.isValidTimeFormat(dto.closingTime)) {
+        errors.push('closingTime must be in HH:MM format');
+      }
+
+      if (this.isValidTimeFormat(dto.openingTime) && this.isValidTimeFormat(dto.closingTime)) {
+        const openingHour = parseInt(dto.openingTime.split(':')[0]);
+        const closingHour = parseInt(dto.closingTime.split(':')[0]);
+
+        if (openingHour >= closingHour) {
+          errors.push('openingTime must be before closingTime');
+        }
+      }
+    }
+
+    // Validate price
+    if (dto.pricePerHour) {
+      const price = parseFloat(dto.pricePerHour);
+      if (isNaN(price) || price < 0) {
+        errors.push('pricePerHour must be a positive number');
+      }
+    }
+
+    if (errors.length > 0) {
+      const error = new ValidationException(
+        'Court validation failed',
+        'courts',
+        errors
+      );
+      return new Failure(error);
+    }
+
+    return new Success(undefined);
+  }
+
+  private isValidTimeFormat(time: string): boolean {
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(time);
+  }
+
+  private mapToResponseDto(court: Court): CourtResponseDto {
+    return {
+      id: court.id,
+      name: court.name,
+      description: court.description || undefined,
+      imageUrl: court.imageUrl || undefined,
+      pricePerHour: court.pricePerHour,
+      type: court.type,
+      surface: court.surface,
+      minPlayers: court.minPlayers,
+      maxPlayers: court.maxPlayers,
+      openingTime: court.openingTime,
+      closingTime: court.closingTime,
+      availableDays: court.availableDays,
+      isActive: court.isActive,
+      createdAt: court.createdAt,
+      updatedAt: court.updatedAt
+    };
+  }
+}

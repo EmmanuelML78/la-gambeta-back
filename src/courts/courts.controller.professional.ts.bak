@@ -1,0 +1,176 @@
+/**
+ * Professional Courts Controller
+ * Demonstrates migration to new architecture patterns
+ */
+
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  HttpStatus,
+  UseGuards,
+  HttpCode
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth
+} from '@nestjs/swagger';
+
+// Import our professional patterns
+import { LoggerService } from '../shared/utils/logger.service';
+import { ParseUUIDPipe } from '../shared/pipes/parse-uuid.pipe';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { ApiResponse as ApiResponseDecorator } from '../shared/decorators/api-response.decorator';
+import { UserRole } from '../common/enums';
+
+// Business logic and DTOs
+import { CourtsServiceProfessional } from './courts.service.professional';
+import { CreateCourtDto, CourtResponseDto } from './dto';
+
+// Core types
+import { ApiResponse as ApiResponseType } from '../core/types';
+import { CourtId } from '../core/types/branded-types';
+
+@ApiTags('Courts (Professional)')
+@Controller('courts-pro')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+export class CourtsControllerProfessional {
+  constructor(
+    private readonly courtsService: CourtsServiceProfessional,
+    private readonly logger: LoggerService
+  ) {
+    this.logger.setContext('CourtsController');
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Create new court (Admin only)',
+    description: 'Creates a new court with validation using professional patterns'
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Court created successfully',
+    type: CourtResponseDto
+  })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 409, description: 'Court already exists' })
+  @ApiResponse({ status: 403, description: 'Admin access required' })
+  async createCourt(
+    @Body() createCourtDto: CreateCourtDto,
+    @CurrentUser('id') userId: string
+  ): Promise<ApiResponseType<CourtResponseDto>> {
+    this.logger.info('Creating new court', {
+      courtName: createCourtDto.name,
+      requestedBy: userId
+    });
+
+    const result = await this.courtsService.createCourt(createCourtDto);
+
+    if (!result.isSuccess) {
+      // The Result pattern allows us to handle errors functionally
+      const error = result.error;
+      this.logger.warn('Court creation failed', {
+        errorCode: error.code,
+        errorMessage: error.message,
+        courtName: createCourtDto.name
+      });
+
+      // Transform business exceptions to HTTP responses
+      throw error; // Our exception filter will handle the HTTP transformation
+    }
+
+    this.logger.info('Court created successfully', {
+      courtId: result.value.id,
+      courtName: result.value.name,
+      createdBy: userId
+    });
+
+    return {
+      success: true,
+      data: result.value,
+      message: 'Court created successfully',
+      timestamp: new Date()
+    };
+  }
+
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get court by ID',
+    description: 'Retrieves a specific court by ID using professional patterns'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Court found',
+    type: CourtResponseDto
+  })
+  @ApiResponse({ status: 404, description: 'Court not found' })
+  async getCourtById(
+    @Param('id', ParseUUIDPipe) id: string
+  ): Promise<ApiResponseType<CourtResponseDto>> {
+    this.logger.info('Retrieving court by ID', { courtId: id });
+
+    const result = await this.courtsService.findCourtById(id);
+
+    if (!result.isSuccess) {
+      const error = result.error;
+      this.logger.warn('Court not found', {
+        courtId: id,
+        errorCode: error.code
+      });
+
+      throw error; // Exception filter handles HTTP transformation
+    }
+
+    this.logger.info('Court retrieved successfully', {
+      courtId: id,
+      courtName: result.value.name
+    });
+
+    return {
+      success: true,
+      data: result.value,
+      message: 'Court retrieved successfully',
+      timestamp: new Date()
+    };
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'Get all courts',
+    description: 'Retrieves all courts using professional patterns'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Courts retrieved successfully',
+    type: [CourtResponseDto]
+  })
+  async getAllCourts(): Promise<ApiResponseType<CourtResponseDto[]>> {
+    this.logger.info('Retrieving all courts');
+
+    const result = await this.courtsService.getAllCourts();
+
+    // Since getAllCourts never fails (returns empty array on error),
+    // we know result.isSuccess is always true
+    this.logger.info('Courts retrieved successfully', {
+      count: result.value.length
+    });
+
+    return {
+      success: true,
+      data: result.value,
+      message: `Retrieved ${result.value.length} courts successfully`,
+      timestamp: new Date()
+    };
+  }
+}
