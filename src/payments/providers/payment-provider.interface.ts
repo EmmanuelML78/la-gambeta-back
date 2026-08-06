@@ -56,6 +56,12 @@ export interface WebhookContext {
   query: Record<string, unknown>;
   headers: Record<string, string | string[] | undefined>;
   body: unknown;
+  /**
+   * Body sin parsear. Los proveedores que siguen Standard Webhooks (Polar)
+   * firman los BYTES originales: re-serializar con JSON.stringify no los
+   * reproduce y la firma da falso negativo.
+   */
+  rawBody?: Buffer;
 }
 
 /** Evento de pago normalizado que el dominio persiste. */

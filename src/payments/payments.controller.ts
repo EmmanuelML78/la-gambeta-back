@@ -9,6 +9,7 @@ import {
   Res,
   HttpStatus,
   UnauthorizedException,
+  RawBodyRequest,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -93,12 +94,16 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Payment provider webhook endpoint' })
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid webhook signature' })
-  async handleWebhook(@Req() req: Request, @Res() res: Response) {
+  async handleWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Res() res: Response,
+  ) {
     try {
       await this.paymentsService.handleWebhook({
         query: req.query as Record<string, unknown>,
         headers: req.headers,
         body: req.body,
+        rawBody: req.rawBody,
       });
       res.status(HttpStatus.OK).json({ received: true });
     } catch (error) {
