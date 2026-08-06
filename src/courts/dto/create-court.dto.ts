@@ -7,6 +7,7 @@ import {
   Min,
   Max,
   Matches,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CourtType, CourtSurface } from '../../common/enums';
@@ -19,6 +20,14 @@ export class CreateCourtDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiPropertyOptional({
+    description: 'Venue this court belongs to',
+    format: 'uuid',
+  })
+  @IsUUID()
+  @IsOptional()
+  venueId?: string;
 
   @ApiPropertyOptional({
     description: 'Description of the court',
