@@ -45,7 +45,7 @@ export class PaymentsService {
 
     // El monto SIEMPRE sale del booking, NUNCA del cliente.
     const amount = parseFloat(booking.totalPrice);
-    const currency = dto.currency ?? 'ARS';
+    const currency = dto.currency ?? 'COP';
     const frontendUrl = this.configService.get<string>(
       'FRONTEND_URL',
       'http://localhost:3000',

@@ -58,7 +58,7 @@ export class ReservationsService {
         bookingId: created.id,
         amount: parseFloat(created.totalPrice), // el server lo recalcula del booking
         description: `Reserva ${dto.bookingDate} ${dto.startTime}-${dto.endTime}`,
-        currency: 'ARS',
+        // Sin currency: la define PaymentsService en un solo lugar.
       });
 
       const booking = await this.getBookingById(created.id);
