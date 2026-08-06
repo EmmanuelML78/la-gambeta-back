@@ -15,6 +15,14 @@ export class CourtResponseDto {
   name: string;
 
   @ApiPropertyOptional({
+    description: 'Venue this court belongs to. Null for courts created before venues existed.',
+    format: 'uuid',
+    nullable: true,
+    type: String,
+  })
+  venueId?: string | null;
+
+  @ApiPropertyOptional({
     description: 'Description of the court',
     example: 'Cancha de fútbol 5 con césped sintético de última generación',
   })

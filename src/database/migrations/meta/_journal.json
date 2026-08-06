@@ -29,6 +29,13 @@
       "when": 1759968047029,
       "tag": "0003_hot_path_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786051911460,
+      "tag": "0004_long_tinkerer",
+      "breakpoints": true
     }
   ]
 }

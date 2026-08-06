@@ -16,6 +16,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MailModule } from './mail/mail.module';
 import { CourtsModule } from './courts/courts.module';
+import { VenuesModule } from './venues/venues.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -66,6 +67,7 @@ import { ValidationPipe } from '@nestjs/common';
     UsersModule,
     MailModule,
     CourtsModule,
+    VenuesModule,
     BookingsModule,
     PaymentsModule,
     ReservationsModule,

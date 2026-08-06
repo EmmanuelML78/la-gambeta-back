@@ -126,8 +126,40 @@ export const verificationTokens = pgTable('verification', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
+/**
+ * Sede física del cliente. Un mismo predio puede tener varias sucursales, y
+ * las canchas cuelgan de una.
+ *
+ * Esto es MULTI-SEDE, no multi-tenant: el despliegue sigue siendo uno por
+ * empresa. Cada cliente corre su instancia con su base y sus credenciales de
+ * cobro — cobrar en una cuenta única por varios comercios sería actuar como
+ * agregador de pagos, que es actividad regulada.
+ *
+ * `latitude`/`longitude` son decimales, NUNCA float: en punto flotante los
+ * grados pierden precisión y el pin se corre de cuadra. 8 decimales dan
+ * resolución de ~1mm, de sobra.
+ */
+export const venues = pgTable('venues', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  address: text('address').notNull(),
+  city: text('city'),
+  phone: text('phone'),
+  latitude: decimal('latitude', { precision: 10, scale: 8 }),
+  longitude: decimal('longitude', { precision: 11, scale: 8 }),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 export const courts = pgTable('courts', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // Nullable a propósito: hay canchas creadas antes de que existieran las
+  // sedes. Migrarlas a NOT NULL exige backfill, y romper el arranque de una
+  // instancia en producción por eso no vale la pena.
+  venueId: uuid('venue_id').references(() => venues.id, {
+    onDelete: 'set null',
+  }),
   name: text('name').notNull(),
   description: text('description'),
   imageUrl: text('image_url'),
@@ -217,7 +249,15 @@ export const accountsRelations = relations(accounts, ({ one }) => ({
   }),
 }));
 
-export const courtsRelations = relations(courts, ({ many }) => ({
+export const venuesRelations = relations(venues, ({ many }) => ({
+  courts: many(courts),
+}));
+
+export const courtsRelations = relations(courts, ({ one, many }) => ({
+  venue: one(venues, {
+    fields: [courts.venueId],
+    references: [venues.id],
+  }),
   bookings: many(bookings),
 }));
 
@@ -252,6 +292,9 @@ export type NewAccount = typeof accounts.$inferInsert;
 
 export type VerificationToken = typeof verificationTokens.$inferSelect;
 export type NewVerificationToken = typeof verificationTokens.$inferInsert;
+
+export type Venue = typeof venues.$inferSelect;
+export type NewVenue = typeof venues.$inferInsert;
 
 export type Court = typeof courts.$inferSelect;
 export type NewCourt = typeof courts.$inferInsert;

@@ -166,11 +166,12 @@ export class CourtsService {
   private mapToResponseDto(court: Court): CourtResponseDto {
     return {
       id: court.id,
+      venueId: court.venueId ?? null,
       name: court.name,
-      description: court.description ?? undefined,
-      // null, NO undefined: JSON.stringify borra las claves undefined y la
-      // clave desaparecía del wire, rompiendo el contrato que el DTO declara
-      // como `string | null`.
+      // null, NO undefined (acá y en imageUrl): JSON.stringify borra las
+      // claves undefined y la clave desaparecía del wire, rompiendo el
+      // contrato que el DTO declara como `string | null`.
+      description: court.description ?? null,
       imageUrl: court.imageUrl ?? null,
       pricePerHour: court.pricePerHour,
       type: court.type,
