@@ -65,6 +65,13 @@ export class CourtsController {
     description: 'Filter courts by active status',
     type: Boolean,
   })
+  @ApiQuery({
+    name: 'venueId',
+    required: false,
+    description: 'Filter courts by venue',
+    format: 'uuid',
+    type: String,
+  })
   @ApiResponse({
     status: 200,
     description: 'List of courts retrieved successfully.',
@@ -73,8 +80,12 @@ export class CourtsController {
   async findAll(
     @Query('isActive', new ParseBoolPipe({ optional: true }))
     isActive?: boolean,
+    // `optional: true` es imprescindible: sin eso el pipe rechaza la ausencia
+    // del parámetro con 400 y el listado sin filtro deja de funcionar.
+    @Query('venueId', new ParseUUIDPipe({ optional: true }))
+    venueId?: string,
   ): Promise<CourtResponseDto[]> {
-    return this.courtsService.findAll(isActive);
+    return this.courtsService.findAll(isActive, venueId);
   }
 
   @Get(':id')

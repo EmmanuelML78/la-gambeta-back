@@ -58,14 +58,22 @@ export class CourtsService {
     return this.mapToResponseDto(createdCourt);
   }
 
-  async findAll(isActive?: boolean): Promise<CourtResponseDto[]> {
-    const whereClause =
-      isActive !== undefined ? eq(courts.isActive, isActive) : undefined;
+  async findAll(
+    isActive?: boolean,
+    venueId?: string,
+  ): Promise<CourtResponseDto[]> {
+    // Se acumulan las condiciones presentes y se combinan con AND. `and()` con
+    // un solo elemento devuelve ese elemento, y con ninguno devuelve undefined,
+    // que es exactamente "sin WHERE".
+    const conditions = [
+      isActive !== undefined ? eq(courts.isActive, isActive) : undefined,
+      venueId !== undefined ? eq(courts.venueId, venueId) : undefined,
+    ].filter((condition) => condition !== undefined);
 
     const allCourts = await this.drizzle.db
       .select()
       .from(courts)
-      .where(whereClause)
+      .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(courts.createdAt));
 
     return allCourts.map((court) => this.mapToResponseDto(court));
