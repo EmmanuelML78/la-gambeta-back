@@ -168,7 +168,10 @@ export class CourtsService {
       id: court.id,
       name: court.name,
       description: court.description ?? undefined,
-      imageUrl: court.imageUrl ?? undefined,
+      // null, NO undefined: JSON.stringify borra las claves undefined y la
+      // clave desaparecía del wire, rompiendo el contrato que el DTO declara
+      // como `string | null`.
+      imageUrl: court.imageUrl ?? null,
       pricePerHour: court.pricePerHour,
       type: court.type,
       surface: court.surface,
