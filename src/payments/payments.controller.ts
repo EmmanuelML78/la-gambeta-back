@@ -100,7 +100,7 @@ export class PaymentsController {
   ) {
     try {
       await this.paymentsService.handleWebhook({
-        query: req.query as Record<string, unknown>,
+        query: req.query,
         headers: req.headers,
         body: req.body,
         rawBody: req.rawBody,

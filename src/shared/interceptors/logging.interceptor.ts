@@ -51,14 +51,8 @@ export class LoggingInterceptor implements NestInterceptor {
       url,
       userAgent,
       ip,
-      query:
-        Object.keys((query as Record<string, unknown>) || {}).length > 0
-          ? query
-          : undefined,
-      params:
-        Object.keys((params as Record<string, unknown>) || {}).length > 0
-          ? params
-          : undefined,
+      query: Object.keys(query || {}).length > 0 ? query : undefined,
+      params: Object.keys(params || {}).length > 0 ? params : undefined,
 
       bodySize: this.getBodySize(body),
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

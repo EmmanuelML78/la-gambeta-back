@@ -71,7 +71,7 @@ export class MailService {
         `Failed to send verification email to ${email}:`,
         error,
       );
-      throw new Error('Failed to send verification email');
+      throw new Error('Failed to send verification email', { cause: error });
     }
   }
 
@@ -89,7 +89,7 @@ export class MailService {
       this.logger.log(`Welcome email sent to: ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send welcome email to ${email}:`, error);
-      throw new Error('Failed to send welcome email');
+      throw new Error('Failed to send welcome email', { cause: error });
     }
   }
 
@@ -110,7 +110,7 @@ export class MailService {
         `Failed to send password reset email to ${email}:`,
         error,
       );
-      throw new Error('Failed to send password reset email');
+      throw new Error('Failed to send password reset email', { cause: error });
     }
   }
 
@@ -128,7 +128,7 @@ export class MailService {
         `Failed to send booking confirmation to ${email}:`,
         error,
       );
-      throw new Error('Failed to send booking confirmation');
+      throw new Error('Failed to send booking confirmation', { cause: error });
     }
   }
 }

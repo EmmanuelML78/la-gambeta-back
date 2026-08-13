@@ -50,7 +50,7 @@ export class ProfileResponseDto {
       // schema zod del front las exige presentes.
       name: user.name ?? null,
       image: user.image ?? null,
-      role: user.role as UserRole,
+      role: user.role,
       emailVerified: user.emailVerified,
       isActive: user.isActive,
       createdAt: user.createdAt,

@@ -10,12 +10,7 @@ export const PAYMENT_PROVIDER = Symbol('PAYMENT_PROVIDER');
 
 /** Estado de pago normalizado — vocabulario del dominio, agnóstico del proveedor. */
 export type NormalizedPaymentStatus =
-  | 'pending'
-  | 'processing'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded';
+  'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
 
 export interface CheckoutInput {
   bookingId: string;

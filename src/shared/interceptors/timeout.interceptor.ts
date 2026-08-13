@@ -49,7 +49,7 @@ export class TimeoutInterceptor implements NestInterceptor {
           );
         }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-        return throwError(() => error) as Observable<unknown>;
+        return throwError(() => error);
       }),
     );
   }

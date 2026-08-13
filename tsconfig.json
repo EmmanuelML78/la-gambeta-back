@@ -1,16 +1,17 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "declaration": true,
+    "declaration": false,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2023",
     "lib": ["ES2023"],
+    "types": ["node", "jest"],
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    "rootDir": ".",
     "incremental": true,
     "skipLibCheck": true,
 
@@ -44,11 +45,11 @@
 
     // Path mapping for clean imports
     "paths": {
-      "@/*": ["src/*"],
-      "@/core/*": ["src/core/*"],
-      "@/shared/*": ["src/shared/*"],
-      "@/modules/*": ["src/modules/*"],
-      "@/infrastructure/*": ["src/infrastructure/*"]
+      "@/*": ["./src/*"],
+      "@/core/*": ["./src/core/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/modules/*": ["./src/modules/*"],
+      "@/infrastructure/*": ["./src/infrastructure/*"]
     }
   },
   "exclude": [
