@@ -44,20 +44,9 @@ async function bootstrap() {
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('El Predio API')
-    .setDescription('API para el sistema de reservas de canchas El Predio')
+    .setTitle('La Gambeta API')
+    .setDescription('API para la plataforma de reservas de canchas La Gambeta')
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
     .addTag(
       'Authentication',
       'Endpoints para autenticación y manejo de usuarios',
@@ -66,7 +55,7 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {
-    customSiteTitle: 'El Predio API Documentation',
+    customSiteTitle: 'La Gambeta API Documentation',
     customfavIcon: '🎾',
     customCssUrl:
       'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
@@ -79,9 +68,9 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3001);
   await app.listen(port);
 
-  logger.log(`🚀 El Predio API running on: http://localhost:${port}/api/v1`);
+  logger.log(`🚀 La Gambeta API running on: http://localhost:${port}/api/v1`);
   logger.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
-  logger.log(`🎾 Welcome to El Predio - Your court reservation system!`);
+  logger.log('🎾 La Gambeta - Sistema de reservas de canchas');
 }
 
 void bootstrap();

@@ -11,13 +11,20 @@ export class DrizzleService {
   public readonly db: PostgresJsDatabase<typeof schema>;
 
   constructor(private readonly configService: ConfigService) {
-    const connectionString = `postgresql://${this.configService.get('DATABASE_USERNAME')}:${this.configService.get('DATABASE_PASSWORD')}@${this.configService.get('DATABASE_HOST')}:${this.configService.get('DATABASE_PORT')}/${this.configService.get('DATABASE_NAME')}`;
+    const username = encodeURIComponent(
+      this.configService.get<string>('DATABASE_USERNAME') ?? '',
+    );
+    const password = encodeURIComponent(
+      this.configService.get<string>('DATABASE_PASSWORD') ?? '',
+    );
+    const connectionString = `postgresql://${username}:${password}@${this.configService.get<string>('DATABASE_HOST')}:${this.configService.get<string>('DATABASE_PORT')}/${this.configService.get<string>('DATABASE_NAME')}`;
+    const ssl = this.configService.get<string>('DATABASE_SSL') === 'true';
 
     const client = postgres(connectionString, {
       max: 20,
       idle_timeout: 20,
       connect_timeout: 60,
-      ssl: false,
+      ssl: ssl ? 'require' : false,
     });
 
     this.db = drizzle(client, { schema, logger: true });

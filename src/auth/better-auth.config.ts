@@ -23,6 +23,7 @@ export const createBetterAuth = ({
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
   return betterAuth({
+    secret: process.env.BETTER_AUTH_SECRET,
     // baseURL = ORIGIN del backend (sin path). El prefijo global /api/v1 de Nest
     // va en basePath: better-auth matchea el request por basePath, y como Nest
     // sirve todo bajo /api/v1, el basePath DEBE incluirlo o las rutas dan 404.
