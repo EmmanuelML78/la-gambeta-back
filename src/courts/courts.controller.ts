@@ -23,6 +23,7 @@ import {
 import { CourtsService } from './courts.service';
 import { CreateCourtDto, UpdateCourtDto, CourtResponseDto } from './dto';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '../common/enums';
 
 @ApiTags('Courts')
@@ -58,6 +59,7 @@ export class CourtsController {
   }
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Get all courts' })
   @ApiQuery({
     name: 'isActive',
@@ -89,6 +91,7 @@ export class CourtsController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get a court by ID' })
   @ApiParam({
     name: 'id',

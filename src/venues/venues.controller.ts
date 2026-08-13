@@ -21,6 +21,7 @@ import {
 import { VenuesService } from './venues.service';
 import { CreateVenueDto, UpdateVenueDto, VenueResponseDto } from './dto';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { UserRole } from '../common/enums';
 
 @ApiTags('Venues')
@@ -30,6 +31,7 @@ export class VenuesController {
   constructor(private readonly venuesService: VenuesService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'List venues with their court count' })
   @ApiQuery({
     name: 'includeInactive',
@@ -46,6 +48,7 @@ export class VenuesController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Get a venue by id' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiResponse({ status: 200, type: VenueResponseDto })
