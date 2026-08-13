@@ -81,7 +81,10 @@ export class VenuesController {
   })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiResponse({ status: 200, type: VenueResponseDto })
-  @ApiResponse({ status: 400, description: 'The venue still has active courts' })
+  @ApiResponse({
+    status: 400,
+    description: 'The venue still has active courts',
+  })
   deactivate(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<VenueResponseDto> {

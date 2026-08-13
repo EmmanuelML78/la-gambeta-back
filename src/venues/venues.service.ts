@@ -6,11 +6,7 @@ import {
 import { and, count, eq } from 'drizzle-orm';
 import { DrizzleService } from '../database/drizzle.service';
 import { courts, venues, NewVenue } from '../database/schema';
-import {
-  CreateVenueDto,
-  UpdateVenueDto,
-  VenueResponseDto,
-} from './dto';
+import { CreateVenueDto, UpdateVenueDto, VenueResponseDto } from './dto';
 
 @Injectable()
 export class VenuesService {

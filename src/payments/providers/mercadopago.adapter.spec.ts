@@ -16,7 +16,11 @@ function buildAdapter(): MercadoPagoAdapter {
   return new MercadoPagoAdapter(config);
 }
 
-function signedCtx(dataId: string, requestId: string, ts: string): WebhookContext {
+function signedCtx(
+  dataId: string,
+  requestId: string,
+  ts: string,
+): WebhookContext {
   const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts};`;
   const v1 = createHmac('sha256', SECRET).update(manifest).digest('hex');
   return {
@@ -30,7 +34,9 @@ describe('MercadoPagoAdapter.verifyWebhookSignature', () => {
   const adapter = buildAdapter();
 
   it('accepts a correctly signed webhook', () => {
-    expect(adapter.verifyWebhookSignature(signedCtx('12345', 'req-1', '1700000000'))).toBe(true);
+    expect(
+      adapter.verifyWebhookSignature(signedCtx('12345', 'req-1', '1700000000')),
+    ).toBe(true);
   });
 
   it('rejects a tampered signature', () => {

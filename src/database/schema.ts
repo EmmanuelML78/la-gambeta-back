@@ -179,54 +179,64 @@ export const courts = pgTable('courts', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const bookings = pgTable('bookings', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  courtId: uuid('court_id')
-    .notNull()
-    .references(() => courts.id, { onDelete: 'cascade' }),
-  bookingDate: timestamp('booking_date').notNull(),
-  startTime: text('start_time').notNull(),
-  endTime: text('end_time').notNull(),
-  status: bookingStatusEnum('status').notNull().default(BookingStatus.DRAFT),
-  totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  // Availability es el hot path: filtra por cancha + fecha.
-  index('bookings_court_date_idx').on(table.courtId, table.bookingDate),
-  index('bookings_user_idx').on(table.userId),
-  index('bookings_status_idx').on(table.status),
-]);
+export const bookings = pgTable(
+  'bookings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    courtId: uuid('court_id')
+      .notNull()
+      .references(() => courts.id, { onDelete: 'cascade' }),
+    bookingDate: timestamp('booking_date').notNull(),
+    startTime: text('start_time').notNull(),
+    endTime: text('end_time').notNull(),
+    status: bookingStatusEnum('status').notNull().default(BookingStatus.DRAFT),
+    totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // Availability es el hot path: filtra por cancha + fecha.
+    index('bookings_court_date_idx').on(table.courtId, table.bookingDate),
+    index('bookings_user_idx').on(table.userId),
+    index('bookings_status_idx').on(table.status),
+  ],
+);
 
-export const payments = pgTable('payments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  bookingId: uuid('booking_id')
-    .notNull()
-    .references(() => bookings.id, { onDelete: 'cascade' }),
-  mpPaymentId: text('mp_payment_id').unique(),
-  mpPreferenceId: text('mp_preference_id'),
-  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
-  currency: text('currency').notNull().default('ARS'),
-  status: paymentStatusEnum('status').notNull().default(PaymentStatus.PENDING),
-  paymentMethod: text('payment_method'),
-  paymentType: text('payment_type'),
-  installments: integer('installments').default(1),
-  description: text('description'),
-  metadata: text('metadata'),
-  failureReason: text('failure_reason'),
-  externalReference: text('external_reference'),
-  dateApproved: timestamp('date_approved'),
-  refundedAmount: decimal('refunded_amount', { precision: 10, scale: 2 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => [
-  // getPaymentByBookingId + persistencia del webhook filtran por booking_id.
-  index('payments_booking_idx').on(table.bookingId),
-]);
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'cascade' }),
+    mpPaymentId: text('mp_payment_id').unique(),
+    mpPreferenceId: text('mp_preference_id'),
+    amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('ARS'),
+    status: paymentStatusEnum('status')
+      .notNull()
+      .default(PaymentStatus.PENDING),
+    paymentMethod: text('payment_method'),
+    paymentType: text('payment_type'),
+    installments: integer('installments').default(1),
+    description: text('description'),
+    metadata: text('metadata'),
+    failureReason: text('failure_reason'),
+    externalReference: text('external_reference'),
+    dateApproved: timestamp('date_approved'),
+    refundedAmount: decimal('refunded_amount', { precision: 10, scale: 2 }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    // getPaymentByBookingId + persistencia del webhook filtran por booking_id.
+    index('payments_booking_idx').on(table.bookingId),
+  ],
+);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({

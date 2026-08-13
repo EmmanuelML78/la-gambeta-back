@@ -15,7 +15,8 @@ export class CourtResponseDto {
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Venue this court belongs to. Null for courts created before venues existed.',
+    description:
+      'Venue this court belongs to. Null for courts created before venues existed.',
     format: 'uuid',
     nullable: true,
     type: String,

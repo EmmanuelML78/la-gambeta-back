@@ -14,7 +14,7 @@ const consoleFormat = printf((info) => {
   const metaString = Object.keys(meta).length
     ? JSON.stringify(meta, null, 2)
     : '';
-  return `${timestamp} [${level}]: ${message} ${metaString}`;
+  return `${String(timestamp)} [${String(level)}]: ${String(message)} ${metaString}`;
 });
 
 // Custom format for file output

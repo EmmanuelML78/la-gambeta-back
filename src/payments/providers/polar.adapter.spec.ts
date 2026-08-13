@@ -4,6 +4,7 @@ import { PolarAdapter } from './polar.adapter';
 import { WebhookContext } from './payment-provider.interface';
 
 const SECRET = 'test-webhook-secret';
+const BOOKING_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 function buildAdapter(): PolarAdapter {
   const config = {
@@ -51,7 +52,7 @@ const ORDER_PAID = {
     amount: 7563025,
     total_amount: 9000000,
     currency: 'cop',
-    metadata: { bookingId: 'booking-abc' },
+    metadata: { bookingId: BOOKING_ID },
   },
 };
 
@@ -71,7 +72,10 @@ describe('PolarAdapter.verifyWebhookSignature', () => {
   it('rejects a tampered body (signature covers raw bytes)', () => {
     const ctx = signedCtx(ORDER_PAID);
     ctx.rawBody = Buffer.from(
-      JSON.stringify({ ...ORDER_PAID, data: { ...ORDER_PAID.data, amount: 1 } }),
+      JSON.stringify({
+        ...ORDER_PAID,
+        data: { ...ORDER_PAID.data, amount: 1 },
+      }),
       'utf8',
     );
     expect(adapter.verifyWebhookSignature(ctx)).toBe(false);
@@ -79,9 +83,9 @@ describe('PolarAdapter.verifyWebhookSignature', () => {
 
   it('rejects a replayed webhook outside the timestamp tolerance', () => {
     const stale = String(Math.floor(Date.now() / 1000) - 3600);
-    expect(adapter.verifyWebhookSignature(signedCtx(ORDER_PAID, 'msg_1', stale))).toBe(
-      false,
-    );
+    expect(
+      adapter.verifyWebhookSignature(signedCtx(ORDER_PAID, 'msg_1', stale)),
+    ).toBe(false);
   });
 
   it('rejects when rawBody is missing', () => {
@@ -104,7 +108,7 @@ describe('PolarAdapter.parseWebhookEvent', () => {
     const event = await adapter.parseWebhookEvent(signedCtx(ORDER_PAID));
     expect(event).toMatchObject({
       providerPaymentId: 'ord_123',
-      bookingId: 'booking-abc',
+      bookingId: BOOKING_ID,
       status: 'succeeded',
       // Lo que PAGÓ el cliente (total_amount), no el neto sin IVA. Si acá
       // apareciera 75630.25 el guard de monto del dominio rechazaría un pago
@@ -117,9 +121,18 @@ describe('PolarAdapter.parseWebhookEvent', () => {
   it('falls back to amount when total_amount is absent', async () => {
     const ctx = signedCtx({
       type: 'order.paid',
-      data: { id: 'ord_9', amount: 5000, metadata: { bookingId: 'b-9' } },
+      data: { id: 'ord_9', amount: 5000, metadata: { bookingId: BOOKING_ID } },
     });
     expect(await adapter.parseWebhookEvent(ctx)).toMatchObject({ amount: 50 });
+  });
+
+  it('ignores events without a string bookingId', async () => {
+    const ctx = signedCtx({
+      type: 'order.paid',
+      data: { id: 'ord_10', amount: 5000, metadata: { bookingId: {} } },
+    });
+
+    expect(await adapter.parseWebhookEvent(ctx)).toBeNull();
   });
 
   it('ignores non-order events', async () => {

@@ -12,6 +12,8 @@ import {
 
 /** Tolerancia de reloj para el timestamp del webhook (anti-replay). */
 const TIMESTAMP_TOLERANCE_SECONDS = 5 * 60;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 interface PolarCheckoutResponse {
   id: string;
@@ -154,7 +156,11 @@ export class PolarAdapter implements PaymentProvider {
     }
 
     const order = body.data;
-    const bookingId = String(order.metadata?.bookingId ?? '');
+    const rawBookingId = order.metadata?.bookingId;
+    if (typeof rawBookingId !== 'string' || !UUID_PATTERN.test(rawBookingId)) {
+      return Promise.resolve(null);
+    }
+    const bookingId = rawBookingId;
     // `total_amount`, NO `amount`: Polar es Merchant of Record y `amount` es el
     // NETO sin impuestos. Con IVA colombiano al 19% el neto da 84% del precio y
     // el guard de monto del dominio rechazaba un pago correcto.

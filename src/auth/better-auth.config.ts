@@ -10,6 +10,12 @@ export interface BetterAuthConfig {
   mailService: MailService;
 }
 
+interface VerificationEmailData {
+  user: BetterAuthUser;
+  url: string;
+  token?: string;
+}
+
 export const createBetterAuth = ({
   drizzleService,
   mailService,
@@ -48,8 +54,14 @@ export const createBetterAuth = ({
           const resetUrl = `${frontendUrl}/reset-password?token=${url.split('token=')[1]}`;
 
           await mailService.sendPasswordReset(user.email, {
-            firstName: (user as BetterAuthUser).firstName || user.name.split(' ')[0] || '',
-            lastName: (user as BetterAuthUser).lastName || user.name.split(' ')[1] || '',
+            firstName:
+              (user as BetterAuthUser).firstName ||
+              user.name.split(' ')[0] ||
+              '',
+            lastName:
+              (user as BetterAuthUser).lastName ||
+              user.name.split(' ')[1] ||
+              '',
             resetUrl,
             expiresIn: process.env.PASSWORD_RESET_TOKEN_EXPIRY || '1h',
           });
@@ -62,16 +74,15 @@ export const createBetterAuth = ({
       },
 
       // Configuración de verificación de email
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async sendVerificationEmail(data: any) {
+
+      async sendVerificationEmail({ user, url, token }: VerificationEmailData) {
         try {
-          const { user, url } = data;
           // Construir URL del frontend para verificación
-          const verificationUrl = `${frontendUrl}/verify-email?token=${url.split('token=')[1] || data.token}`;
+          const verificationUrl = `${frontendUrl}/verify-email?token=${url.split('token=')[1] || token}`;
 
           await mailService.sendEmailVerification(user.email, {
-            firstName: (user as BetterAuthUser).firstName || user.name.split(' ')[0] || '',
-            lastName: (user as BetterAuthUser).lastName || user.name.split(' ')[1] || '',
+            firstName: user.firstName || user.name.split(' ')[0] || '',
+            lastName: user.lastName || user.name.split(' ')[1] || '',
             verificationUrl,
             expiresIn: process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY || '24h',
           });

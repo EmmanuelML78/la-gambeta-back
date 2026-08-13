@@ -115,7 +115,9 @@ export class MercadoPagoAdapter implements PaymentProvider {
   verifyWebhookSignature(ctx: WebhookContext): boolean {
     const secret = this.config.get<string>('MP_WEBHOOK_SECRET');
     if (!secret) {
-      this.logger.error('MP_WEBHOOK_SECRET is not configured — rejecting webhook');
+      this.logger.error(
+        'MP_WEBHOOK_SECRET is not configured — rejecting webhook',
+      );
       return false;
     }
 
@@ -140,8 +142,12 @@ export class MercadoPagoAdapter implements PaymentProvider {
 
     // Manifest MP: id:{data.id};request-id:{x-request-id};ts:{ts};
     const dataId = ctx.query['data.id'] ?? ctx.query['id'];
+    const normalizedDataId =
+      typeof dataId === 'string' || typeof dataId === 'number'
+        ? String(dataId).toLowerCase()
+        : undefined;
     const manifest =
-      (dataId != null ? `id:${String(dataId).toLowerCase()};` : '') +
+      (normalizedDataId ? `id:${normalizedDataId};` : '') +
       `request-id:${requestId};` +
       `ts:${ts};`;
 

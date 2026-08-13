@@ -27,7 +27,7 @@ export class AppController {
       },
     },
   })
-  getHello(): Record<string, any> {
+  getHello() {
     return this.appService.getAppInfo();
   }
 
@@ -41,7 +41,7 @@ export class AppController {
     status: 200,
     description: 'Detailed health information',
   })
-  getHealth(): Record<string, any> {
+  getHealth() {
     return this.appService.getHealthCheck();
   }
 }

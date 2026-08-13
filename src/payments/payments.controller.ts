@@ -108,7 +108,9 @@ export class PaymentsController {
       res.status(HttpStatus.OK).json({ received: true });
     } catch (error) {
       if (error instanceof UnauthorizedException) {
-        res.status(HttpStatus.UNAUTHORIZED).json({ error: 'Invalid signature' });
+        res
+          .status(HttpStatus.UNAUTHORIZED)
+          .json({ error: 'Invalid signature' });
         return;
       }
       // Error de procesamiento -> 500 para que el proveedor reintente.
@@ -128,10 +130,10 @@ export class PaymentsController {
     status: 200,
     description: 'Payment methods retrieved successfully',
   })
-  async getPaymentMethods() {
+  getPaymentMethods() {
     this.logger.log('Getting payment methods');
 
-    return await this.paymentsService.getPaymentMethods();
+    return this.paymentsService.getPaymentMethods();
   }
 
   @Get('booking/:bookingId')

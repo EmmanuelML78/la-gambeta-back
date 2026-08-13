@@ -38,7 +38,9 @@ export class BetterAuthGuard implements CanActivate {
 
     const request = context
       .switchToHttp()
-      .getRequest<Request & { user: BetterAuthUser; session: BetterAuthSession }>();
+      .getRequest<
+        Request & { user: BetterAuthUser; session: BetterAuthSession }
+      >();
 
     try {
       // Obtener la sesión desde Better Auth
