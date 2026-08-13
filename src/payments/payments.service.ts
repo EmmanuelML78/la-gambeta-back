@@ -24,6 +24,7 @@ import {
   NormalizedPaymentStatus,
   WebhookContext,
 } from './providers/payment-provider.interface';
+import { canReplacePaymentStatus } from './payment-status-transition';
 
 @Injectable()
 export class PaymentsService {
@@ -197,6 +198,20 @@ export class PaymentsService {
     const status = this.mapNormalizedStatus(event.status);
 
     await this.drizzleService.db.transaction(async (tx) => {
+      const [payment] = await tx
+        .select({ status: payments.status })
+        .from(payments)
+        .where(eq(payments.bookingId, event.bookingId))
+        .limit(1)
+        .for('update');
+
+      if (!payment || !canReplacePaymentStatus(payment.status, status)) {
+        this.logger.warn(
+          `Ignored stale payment status ${status} for booking ${event.bookingId}`,
+        );
+        return;
+      }
+
       await tx
         .update(payments)
         .set({
