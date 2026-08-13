@@ -1,249 +1,131 @@
-# 🎾 El Predio - Backend API
+# La Gambeta — API
 
-Sistema completo de autenticación y manejo de roles para la plataforma de reserva de canchas **El Predio**.
+API de reservas deportivas para La Gambeta. Centraliza autenticación, sedes, canchas, disponibilidad, reservas y pagos dentro de una arquitectura modular construida con NestJS y PostgreSQL.
 
-## 🚀 Características
+> **Modo portafolio:** Polar se usa en modo Sandbox de forma predeterminada. No se deben introducir tarjetas ni credenciales reales en una demostración pública.
 
-### ✅ **Sistema de Autenticación Completo**
-- **Registro local** con validación de email
-- **Login con Google OAuth**
-- **Verificación de email** con plantillas profesionales
-- **Recuperación de contraseña**
-- **JWT tokens** (access + refresh)
-- **Rate limiting** para seguridad
+## Capacidades
 
-### 🔐 **Control de Roles**
-- **Roles**: Admin y User
-- **Guards personalizados** para protección de rutas
-- **Decoradores** para fácil manejo de permisos
+- Autenticación por email y Google con Better Auth y sesiones seguras en cookies.
+- Verificación de email, recuperación de contraseña y perfiles de usuario.
+- Roles `USER`, `OWNER` y `ADMIN` con autorización por ruta.
+- CRUD de sedes y canchas.
+- Disponibilidad y reservas protegidas contra solapamientos en PostgreSQL.
+- Checkout mediante un puerto de pagos con adaptadores para Polar y Mercado Pago.
+- Webhooks firmados, idempotencia y transiciones de estado protegidas.
+- Health check, validación global, Helmet, CORS, rate limiting y Swagger.
 
-### 📧 **Sistema de Emails**
-- **Plantillas HTML profesionales** branded para El Predio
-- **Nodemailer + Handlebars**
-- Templates para: verificación, bienvenida, reset password, confirmación reservas
+## Stack
 
-### 🗄️ **Base de Datos**
-- **PostgreSQL** con Docker
-- **Drizzle ORM** para type-safe queries
-- **Migraciones automáticas**
+- NestJS 11 y TypeScript estricto.
+- PostgreSQL 17, Drizzle ORM y migraciones SQL versionadas.
+- Better Auth con adaptador Drizzle.
+- API de Polar y Mercado Pago detrás de `PaymentProvider`.
+- Nodemailer y Handlebars para emails transaccionales.
+- Jest, ESLint y Swagger/OpenAPI.
 
-### 📚 **Documentación**
-- **Swagger/OpenAPI** integrado
-- **Endpoints documentados**
-- **Schemas de validación**
+## Arquitectura
 
-## 🛠️ Stack Tecnológico
-
-- **Framework**: NestJS 11
-- **Database**: PostgreSQL 17.4
-- **ORM**: Drizzle ORM
-- **Authentication**: Passport (JWT, Google OAuth, Local)
-- **Email**: Nodemailer + Handlebars
-- **Validation**: class-validator + class-transformer
-- **Documentation**: Swagger/OpenAPI
-- **Security**: Helmet, CORS, Rate Limiting
-
-## ⚙️ Configuración e Instalación
-
-### 1. **Clonar e Instalar**
-```bash
-git clone <repository-url>
-cd back
-pnpm install
+```mermaid
+flowchart LR
+  Web["Next.js frontend"] -->|"/api/v1"| API["NestJS"]
+  API --> Auth["Better Auth"]
+  API --> Booking["Bookings / Reservations"]
+  API --> Catalog["Venues / Courts"]
+  API --> DB[(PostgreSQL)]
+  Booking --> Port["PaymentProvider"]
+  Port --> Polar["Polar"]
+  Port --> MP["Mercado Pago"]
+  Polar -->|"webhook firmado"| API
+  MP -->|"webhook firmado"| API
 ```
 
-### 2. **Configurar Variables de Entorno**
+`BookingsService` es la autoridad del dominio de reservas. `ReservationsService` coordina la reserva con el checkout, y los proveedores de pago implementan un puerto común para evitar acoplar el negocio a una pasarela.
+
+## Ejecución local
+
+### Requisitos
+
+- Node.js 20 o superior.
+- pnpm 10 o superior.
+- Docker con Compose, o una instancia PostgreSQL 17 accesible.
+
+### Instalación
+
 ```bash
+git clone https://github.com/EmmanuelML78/la-gambeta-back.git
+cd la-gambeta-back
 cp .env.example .env
+pnpm install
+docker compose up -d db
+pnpm db:migrate
+pnpm start:dev
 ```
 
-Edita el archivo `.env` con tus credenciales:
-```env
-# Database
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=your_password
-DATABASE_NAME=el_predio_db
+Servicios locales:
 
-# JWT
-JWT_SECRET=your_super_secret_jwt_key
-JWT_REFRESH_SECRET=your_super_secret_refresh_key
+- API: [http://localhost:3001/api/v1](http://localhost:3001/api/v1)
+- Health: [http://localhost:3001/api/v1/health](http://localhost:3001/api/v1/health)
+- Swagger: [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+## Configuración
 
-# Email (Gmail example)
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USER=noreply@elpredio.com
-MAIL_PASSWORD=your_app_password
-```
+Las variables completas y sus valores seguros de ejemplo están en [`.env.example`](./.env.example).
 
-### 3. **Levantar Base de Datos**
-```bash
-docker-compose up -d
-```
+### Variables esenciales
 
-### 4. **Ejecutar Migraciones**
-```bash
-pnpm run db:push
-```
+| Grupo | Variables |
+| --- | --- |
+| Aplicación | `PORT`, `NODE_ENV`, `FRONTEND_URL`, `BACKEND_URL` |
+| Base de datos | `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `DATABASE_NAME`, `DATABASE_SSL` |
+| Autenticación | `BETTER_AUTH_SECRET`, `REQUIRE_EMAIL_VERIFICATION` |
+| Email | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM` |
+| Polar | `PAYMENT_PROVIDER`, `POLAR_ACCESS_TOKEN`, `POLAR_PRODUCT_ID`, `POLAR_WEBHOOK_SECRET`, `POLAR_SERVER` |
 
-### 5. **Ejecutar la Aplicación**
-```bash
-# Desarrollo
-pnpm run start:dev
-
-# Producción
-pnpm run build
-pnpm run start:prod
-```
-
-## 📖 Uso
-
-### **Endpoints Principales**
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `POST` | `/api/v1/auth/register` | Registro de usuario |
-| `POST` | `/api/v1/auth/login` | Login local |
-| `POST` | `/api/v1/auth/verify-email` | Verificar email |
-| `POST` | `/api/v1/auth/forgot-password` | Solicitar reset |
-| `POST` | `/api/v1/auth/reset-password` | Reset password |
-| `GET` | `/api/v1/auth/google` | Login con Google |
-| `GET` | `/api/v1/auth/profile` | Perfil usuario |
-| `POST` | `/api/v1/auth/refresh` | Refresh token |
-
-### **Documentación Interactiva**
-Visita `http://localhost:3001/api/docs` para la documentación Swagger completa.
-
-### **Flujo de Registro**
-1. Usuario se registra en `/auth/register`
-2. Recibe email de verificación con plantilla de El Predio
-3. Hace click en el enlace para verificar
-4. Recibe email de bienvenida
-5. Puede hacer login en `/auth/login`
-
-### **Uso de Decoradores**
-```typescript
-// Ruta pública
-@Public()
-@Get('public')
-
-// Solo administradores
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
-@Get('admin-only')
-
-// Usuario actual
-@Get('profile')
-getProfile(@CurrentUser() user: any) {
-  return user;
-}
-```
-
-## 🧪 Scripts Disponibles
+Genera un secreto de producción con:
 
 ```bash
-# Desarrollo
-pnpm run start:dev        # Servidor con watch mode
-
-# Base de datos
-pnpm run db:generate      # Generar migración
-pnpm run db:push          # Aplicar cambios a DB
-pnpm run db:studio        # Drizzle Studio
-
-# Testing
-pnpm run test             # Tests unitarios
-pnpm run test:e2e         # Tests E2E
-pnpm run test:cov         # Coverage
-
-# Linting
-pnpm run lint             # ESLint
-pnpm run format           # Prettier
+openssl rand -base64 32
 ```
 
-## 🔧 Configuración de Google OAuth
+Para desarrollo sin SMTP se puede mantener `REQUIRE_EMAIL_VERIFICATION=false`. En producción, configura un servidor SMTP real antes de activarlo.
 
-1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
-2. Crea un nuevo proyecto o selecciona uno existente
-3. Habilita la API de Google+
-4. Ve a "Credenciales" > "Crear credenciales" > "ID de cliente OAuth 2.0"
-5. Configura:
-   - **Authorized JavaScript origins**: `http://localhost:3001`
-   - **Authorized redirect URIs**: `http://localhost:3001/api/v1/auth/google/callback`
+## Superficie HTTP
 
-## 📧 Configuración de Email
+Todas las rutas de negocio usan el prefijo `/api/v1`.
 
-### Gmail
-1. Habilita 2FA en tu cuenta Gmail
-2. Genera una "Contraseña de aplicación"
-3. Usa esa contraseña en `MAIL_PASSWORD`
+| Recurso | Responsabilidad |
+| --- | --- |
+| `/auth/*` | Registro, sesión, OAuth y recuperación administrados por Better Auth |
+| `/venues` | Consulta pública y administración de sedes |
+| `/courts` | Catálogo, detalle y administración de canchas |
+| `/bookings` | Disponibilidad, reservas del usuario y operaciones administrativas |
+| `/reservations` | Creación coordinada con checkout, consulta, confirmación y cancelación |
+| `/payments` | Preferencias, estado, métodos y webhooks |
+| `/users/me` | Lectura y actualización del perfil autenticado |
 
-### Otros proveedores
-Configura `MAIL_HOST`, `MAIL_PORT` según tu proveedor (SendGrid, AWS SES, etc.)
+Consulta los contratos exactos y DTO en Swagger.
 
-## 🚀 Características de Producción
+## Comandos de calidad
 
-- ✅ **Helmet** para headers de seguridad
-- ✅ **CORS** configurado
-- ✅ **Rate limiting** anti-spam
-- ✅ **Validation pipes** globales  
-- ✅ **Error handling** personalizado
-- ✅ **Logging** estructurado
-- ✅ **Environment validation**
-
-## 📁 Estructura del Proyecto
-
-```
-src/
-├── auth/              # Módulo de autenticación
-│   ├── decorators/    # Decoradores (@Roles, @Public, etc.)
-│   ├── dto/          # DTOs de request/response
-│   ├── guards/       # Guards de seguridad
-│   ├── strategies/   # Strategies de Passport
-│   └── interfaces/   # Interfaces TypeScript
-├── users/            # Módulo de usuarios
-├── mail/             # Módulo de emails
-│   └── templates/    # Plantillas HTML
-├── database/         # Configuración DB y schema
-├── common/           # Enums y utilidades
-└── main.ts          # Bootstrap de la aplicación
+```bash
+pnpm test --runInBand
+pnpm lint
+pnpm build
+pnpm audit --prod
 ```
 
-## 🎨 Plantillas de Email
+## Despliegue
 
-Las plantillas incluyen:
-- ✨ **Diseño responsive**
-- 🎾 **Branding de El Predio**
-- 🎨 **Colores corporativos**
-- 📱 **Compatible con todos los clientes de email**
+1. Aprovisiona PostgreSQL y configura `DATABASE_SSL=true` si el proveedor exige TLS.
+2. Define `BACKEND_URL` con el origen HTTPS de esta API y `FRONTEND_URL` con el dominio final de Next.js.
+3. Usa un `BETTER_AUTH_SECRET` único y configura SMTP y Polar con secretos del entorno.
+4. Ejecuta `pnpm install --frozen-lockfile`, `pnpm db:migrate` y `pnpm build`.
+5. Inicia el servicio con `pnpm start:prod` y comprueba `/api/v1/health`.
+6. Registra `https://TU_BACKEND/api/v1/payments/webhook` en Polar y copia su secreto de firma.
 
-## ⚡ Próximas Funcionalidades
+Nunca ejecutes `db:push` en producción; las migraciones versionadas son la fuente de verdad.
 
-- [ ] Sistema de reservas de canchas
-- [ ] Notificaciones push
-- [ ] Dashboard administrativo
-- [ ] Integración con pagos
-- [ ] Chat en tiempo real
-- [ ] Sistema de puntos/fidelización
+## Repositorio relacionado
 
-## 🤝 Contribución
-
-1. Fork del repositorio
-2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
-3. Commit: `git commit -m 'Add nueva funcionalidad'`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Crear Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT.
-
----
-
-## 🎾 ¡Bienvenido a El Predio!
-
-*Tu plataforma de reserva de canchas con autenticación de nivel enterprise.*
+- [La Gambeta Frontend](https://github.com/EmmanuelML78/la-gambeta-front)
