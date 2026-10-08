@@ -118,6 +118,7 @@ export const createBetterAuth = ({
         role: {
           type: 'string',
           required: false,
+          input: false,
           // El enum user_role usa labels EN MAYÚSCULA (UserRole.USER = 'USER').
           // 'user' en minúscula rompe el insert: invalid input value for enum.
           defaultValue: 'USER',
@@ -133,6 +134,7 @@ export const createBetterAuth = ({
         isActive: {
           type: 'boolean',
           required: false,
+          input: false,
           defaultValue: true,
         },
       },
