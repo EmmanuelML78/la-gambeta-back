@@ -27,6 +27,6 @@ export class DrizzleService {
       ssl: ssl ? 'require' : false,
     });
 
-    this.db = drizzle(client, { schema, logger: true });
+    this.db = drizzle(client, { schema, logger: false });
   }
 }
