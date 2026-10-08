@@ -1,6 +1,6 @@
 import { Controller, All, Req, Res, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiExcludeController } from '@nestjs/swagger';
-import {
+import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from 'express';
