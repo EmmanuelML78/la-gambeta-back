@@ -22,7 +22,7 @@ The current user schema exposes both fields as additional input. Better Auth acc
 
 ## Tasks
 - [x] AUTH-1: Add regression coverage at the Better Auth boundary, block client input for both authority fields, and verify the behavior. Route: delegated writer because this touches config plus a non-trivial test file; the four-file mapping was separately delegated.
-- [ ] AUTH-2: Independently review the fix, run applicable full checks, and commit the isolated work unit. Route: delegated verification because test/build execution is delegated; parent handles Git state and commit.
+- [x] AUTH-2: Independently review the fix, run applicable full checks, and commit the isolated work unit. Route: delegated verification because test/build execution is delegated; parent handles Git state and commit.
 
 ## Verification and progress
 - Base: backend `db4c9a3e73fcccd739d23de276e105bf7f88c067`.
@@ -32,5 +32,5 @@ The current user schema exposes both fields as additional input. Better Auth acc
 - Runtime harness: independent verifier used the actual Better Auth 1.6.27 in-process HTTP handler with a memory adapter. Signup with client `ADMIN`/`false` stored `USER`/`true`; authenticated role update returned 400 `FIELD_NOT_ALLOWED`; `isActive`-only update returned 400 `No fields to update`; valid name update succeeded without changing either protected field. This did not exercise Nest or PostgreSQL.
 - Independent read-only security review found no concrete P0/P1 bypass. The committed Jest regression test mocks Better Auth and checks the configuration contract, not the HTTP route. A persisted HTTP/database integration test remains a follow-up.
 - Rollback boundary: auth user-field input policy and its regression tests only.
-- Commit identity: pending.
-- Next step: commit the isolated work unit, record the commit identity, and close AUTH-2.
+- Work-unit commit: `49c362574b76dfd7700d1e63104d2556c1e5f530` (`fix(auth): reject client-controlled authority fields`).
+- Next step: add a persisted HTTP/database regression test and verify this fix against the dirty integration branch before any deployment.
