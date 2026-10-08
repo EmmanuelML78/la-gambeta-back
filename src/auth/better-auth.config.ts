@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { DrizzleService } from '../database/drizzle.service';
@@ -21,8 +22,30 @@ export const createBetterAuth = ({
   mailService,
 }: BetterAuthConfig) => {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const authLogger = new Logger('BetterAuth');
 
   return betterAuth({
+    logger: {
+      log(level) {
+        const safeMessages = {
+          debug: 'Better Auth debug event (details redacted)',
+          info: 'Better Auth info event (details redacted)',
+          warn: 'Better Auth warning (details redacted)',
+          error: 'Better Auth error (details redacted)',
+        };
+        const safeMessage = safeMessages[level];
+
+        if (level === 'error') {
+          authLogger.error(safeMessage);
+        } else if (level === 'warn') {
+          authLogger.warn(safeMessage);
+        } else if (level === 'debug') {
+          authLogger.debug(safeMessage);
+        } else {
+          authLogger.log(safeMessage);
+        }
+      },
+    },
     secret: process.env.BETTER_AUTH_SECRET,
     // baseURL = ORIGIN del backend (sin path). El prefijo global /api/v1 de Nest
     // va en basePath: better-auth matchea el request por basePath, y como Nest

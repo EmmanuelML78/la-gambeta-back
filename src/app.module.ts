@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 // Core Application
@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 
 // Infrastructure
 import { DatabaseModule } from './database/database.module';
+import { DrizzleQueryErrorFilter } from './database/drizzle-query-error.filter';
 // import { LoggerModule } from './shared/utils/logger.module';
 
 // Feature Modules
@@ -76,6 +77,11 @@ import { ValidationPipe } from '@nestjs/common';
   controllers: [AppController],
   providers: [
     AppService,
+
+    {
+      provide: APP_FILTER,
+      useClass: DrizzleQueryErrorFilter,
+    },
 
     // Global Guards — el orden importa:
     // 1) BetterAuthGuard adjunta req.user, 2) RolesGuard lo lee.

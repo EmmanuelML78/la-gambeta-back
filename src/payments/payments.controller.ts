@@ -17,7 +17,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { DrizzleQueryError } from 'drizzle-orm';
+import type { Request, Response } from 'express';
 import { PaymentsService } from './payments.service';
 import { CreatePreferenceDto, ProcessPaymentDto } from './dto';
 import { Public } from '../auth/decorators/public.decorator';
@@ -114,9 +115,13 @@ export class PaymentsController {
         return;
       }
       // Error de procesamiento -> 500 para que el proveedor reintente.
-      this.logger.error(
-        `Webhook processing error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+      const errorMessage =
+        error instanceof DrizzleQueryError
+          ? 'Database query failed; details redacted'
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error';
+      this.logger.error(`Webhook processing error: ${errorMessage}`);
       res
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .json({ error: 'Webhook processing failed' });
