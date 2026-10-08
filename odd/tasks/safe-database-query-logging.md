@@ -34,7 +34,7 @@ No other source files. Do not edit the original dirty `back` worktree. No depend
 - [x] Run focused/full Jest, TypeScript `--noEmit`, check-only targeted ESLint, and diff checks.
 - [x] Read back all scoped files; no unsupported telemetry or runtime claim made.
 - [x] Correct type-only Express imports and rerun parent-equivalent direct-node Jest commands plus static checks.
-- [ ] Parent to confirm the reproduced results and decide commit readiness.
+- [x] Parent confirmed the reproduced results and committed the work unit.
 
 ## Acceptance criteria
 - No sentinel bound value from a `DrizzleQueryError` appears in HTTP error response or the authorized error logging paths.
@@ -49,10 +49,10 @@ Revert only the scoped changes listed above: remove the error filter and its `AP
 - [x] Confirmed existing partial fix and received independent reviewer evidence that disabling Drizzle's logger alone was incomplete.
 - [x] Expanded scope, checklist, and no-commit boundary before source edits.
 - [x] Implemented safe filter, webhook, and Better Auth logger behavior with tests.
-- [x] Local requested checks passed; no commit created.
+- [x] Local requested checks passed before the parent commit.
 - [x] Parent spot-check revealed the prior local Jest pass was not reproducible because production code imported Express types as runtime values; switched controller/filter/spec imports to `import type`.
 - [x] Exact parent-equivalent direct-node focused and full Jest reruns now pass; static checks pass.
-- [ ] Parent re-review/commit decision pending.
+- [x] Parent re-review completed with no new P0/P1 issue; work-unit commit recorded below.
 
 ## Verification evidence
 - Earlier local focused Jest: 4 suites / 5 tests passed through the `.cmd` shim, but the parent-equivalent direct-node run initially failed before tests because `express` was imported at runtime.
@@ -71,4 +71,4 @@ Revert only the scoped changes listed above: remove the error filter and its `AP
 - Independent review found no confirmed P0/P1 issue in the reviewed paths. Conditional P2 caveat: installed Better Auth's Drizzle adapter has a separate global logger that can emit a raw `where` context on an unexpected affected-row result; the per-instance logger does not control this vendor path. Do not claim blanket Better Auth or telemetry privacy from this change.
 
 ## Next step
-Commit this local work unit after final staged-diff readback. Keep the branch isolated; do not push, open a PR, integrate, or deploy. Track the conditional vendor-adapter diagnostic separately.
+Work-unit commit: `a324c2967ac62cdfdbafc692e88807b9e01df9e2` (`fix(logging): prevent database parameter exposure`). Keep the branch isolated; do not push, open a PR, integrate, or deploy. Track the conditional vendor-adapter diagnostic separately.
