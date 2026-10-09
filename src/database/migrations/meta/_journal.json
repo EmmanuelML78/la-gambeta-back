@@ -36,6 +36,41 @@
       "when": 1786051911460,
       "tag": "0004_long_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788050104996,
+      "tag": "0005_massive_runaways",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788117481086,
+      "tag": "0006_cuddly_secret_warriors",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788133685333,
+      "tag": "0007_thick_captain_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788135196819,
+      "tag": "0008_sleepy_karnak",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791505076519,
+      "tag": "0009_payment_flow_manual_review",
+      "breakpoints": true
     }
   ]
 }
