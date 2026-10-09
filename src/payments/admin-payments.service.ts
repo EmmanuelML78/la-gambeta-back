@@ -192,7 +192,7 @@ export class AdminPaymentsService {
         .from(auditEvents)
         .where(or(
           and(eq(auditEvents.entityType, 'payment'), eq(auditEvents.entityId, row.id)),
-          and(eq(auditEvents.entityType, 'booking'), eq(auditEvents.entityId, row.bookingId)),
+          and(eq(auditEvents.entityType, 'booking'), eq(auditEvents.correlationId, `attempt:${row.id}`)),
         ))
         .orderBy(desc(auditEvents.createdAt), desc(auditEvents.id)),
       this.drizzle.db
@@ -210,7 +210,7 @@ export class AdminPaymentsService {
     const audits = auditRows
       .map(projectSafeAdminPaymentAudit)
       .filter((audit): audit is NonNullable<typeof audit> => audit !== null);
-    const reconciliationRequired = row.manualReview || audits.length > 0;
+    const reconciliationRequired = row.manualReview;
     const refundEligibility = resolveBookingRefundEligibility({
       status: row.bookingStatus as BookingStatus,
       bookingDate: row.bookingDate,
