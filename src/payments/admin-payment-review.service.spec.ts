@@ -77,8 +77,15 @@ describe('AdminPaymentReviewService', () => {
 
   it('atomically resolves only the review flag and records the responsible admin and note', async () => {
     let pending = true;
+    const flaggedAt = new Date('2026-10-01T10:00:00.000Z');
+    const flagReason = 'Provider response was uncertain';
     const { service, tx, db } = createService();
-    tx.select.mockImplementation(() => query([{ id: PAYMENT_ID, manualReview: pending }]));
+    tx.select.mockImplementation(() => query([{
+      id: PAYMENT_ID,
+      manualReview: pending,
+      manualReviewReason: flagReason,
+      manualReviewAt: flaggedAt,
+    }]));
     const set = jest.fn().mockImplementation((values: Record<string, unknown>) => ({
       where: jest.fn().mockReturnValue({
         returning: jest.fn().mockImplementation(async () => {
@@ -113,6 +120,10 @@ describe('AdminPaymentReviewService', () => {
       entityType: 'payment',
       entityId: PAYMENT_ID,
       reason: 'Reviewed with provider evidence',
+      metadata: {
+        previousManualReviewReason: flagReason,
+        previousManualReviewAt: flaggedAt.toISOString(),
+      },
     }));
   });
 

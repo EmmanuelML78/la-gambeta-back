@@ -51,7 +51,12 @@ export class AdminPaymentReviewService {
 
     return this.drizzle.db.transaction(async (tx) => {
       const [payment] = await tx
-        .select({ id: payments.id, manualReview: payments.manualReview })
+        .select({
+          id: payments.id,
+          manualReview: payments.manualReview,
+          manualReviewReason: payments.manualReviewReason,
+          manualReviewAt: payments.manualReviewAt,
+        })
         .from(payments)
         .where(eq(payments.id, paymentAttemptId))
         .limit(1)
@@ -78,6 +83,10 @@ export class AdminPaymentReviewService {
         entityId: paymentAttemptId,
         source: 'admin_payment_review_api',
         reason: note,
+        metadata: {
+          previousManualReviewReason: payment.manualReviewReason,
+          previousManualReviewAt: payment.manualReviewAt?.toISOString() ?? null,
+        },
       });
 
       return { paymentAttemptId: updated.id, reviewStatus: 'resolved' as const };
