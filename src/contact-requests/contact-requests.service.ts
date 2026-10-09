@@ -59,7 +59,7 @@ export class ContactRequestsService {
         .select()
         .from(contactRequests)
         .where(where)
-        .orderBy(desc(contactRequests.createdAt))
+        .orderBy(desc(contactRequests.createdAt), desc(contactRequests.id))
         .limit(query.limit)
         .offset(query.offset),
       this.drizzle.db
