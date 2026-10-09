@@ -134,6 +134,7 @@ describe('AdminPaymentsService.summary', () => {
     ]);
     expect(reconciliationJoin.sql).toContain('entity_id');
     expect(reconciliationJoin.sql).toContain('payments');
+    expect(reconciliationJoin.sql).toContain('"payments"."id"::text');
     const aggregateSelection = select.mock.calls[0][0] as Record<string, unknown>;
     const gross = dialect.sqlToQuery(aggregateSelection.grossAmount as never);
     const refunded = dialect.sqlToQuery(aggregateSelection.refundedAmount as never);

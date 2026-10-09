@@ -86,7 +86,7 @@ export class AdminPaymentsService {
       this.drizzle.db
         .select({ total: sql<number>`count(*)::int` })
         .from(auditEvents)
-        .innerJoin(payments, eq(auditEvents.entityId, payments.id))
+        .innerJoin(payments, eq(auditEvents.entityId, sql`${payments.id}::text`))
         .where(and(
           eq(auditEvents.action, LATE_PAYMENT_RECONCILIATION_ACTION),
           eq(auditEvents.entityType, 'payment'),
