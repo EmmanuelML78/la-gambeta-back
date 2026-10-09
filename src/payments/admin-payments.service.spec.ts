@@ -4,6 +4,7 @@ import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { auditEvents, bookings, payments } from '../database/schema';
 import { AdminPaymentQueryDto } from './dto';
 import { AdminPaymentsService } from './admin-payments.service';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 
 function chain(methods: string[], terminal: string, result: unknown) {
   const query: Record<string, jest.Mock> = {};
@@ -83,7 +84,7 @@ describe('AdminPaymentsService.summary', () => {
       { status: PaymentStatus.SUCCEEDED, total: '3' },
       { status: PaymentStatus.REFUNDED, total: '1' },
     ]);
-    const reconciliation = chain(['from'], 'where', [{ total: '2' }]);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', [{ total: '2' }]);
     const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
     const result = await new AdminPaymentsService({ db: { select } } as never).summary();
     expect(result).toMatchObject({
@@ -97,7 +98,7 @@ describe('AdminPaymentsService.summary', () => {
   it('returns zeroed aggregates and a complete status map when there is no data', async () => {
     const totals = chain(['from'], 'where', []);
     const statuses = chain(['from', 'where'], 'groupBy', []);
-    const reconciliation = chain(['from'], 'where', []);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', []);
     const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
     const result = await new AdminPaymentsService({ db: { select } } as never).summary();
     expect(result.currency).toBe('COP');
@@ -112,7 +113,7 @@ describe('AdminPaymentsService.summary', () => {
   it('uses official currency and the exact reconciliation action as query predicates', async () => {
     const totals = chain(['from'], 'where', []);
     const statuses = chain(['from', 'where'], 'groupBy', []);
-    const reconciliation = chain(['from'], 'where', []);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', []);
     const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
     await new AdminPaymentsService({ db: { select } } as never).summary();
     const dialect = new PgDialect();
@@ -122,8 +123,17 @@ describe('AdminPaymentsService.summary', () => {
       expect(compiled.params).toContain(OFFICIAL_CURRENCY);
     }
     const reconciliationWhere = dialect.sqlToQuery(reconciliation.where.mock.calls[0][0]);
+    const reconciliationJoin = dialect.sqlToQuery(reconciliation.innerJoin.mock.calls[0][1]);
     expect(reconciliationWhere.sql).toContain('action');
-    expect(reconciliationWhere.params).toEqual(['late_payment_requires_reconciliation']);
+    expect(reconciliationWhere.sql).toContain('entity_type');
+    expect(reconciliationWhere.sql).toContain('currency');
+    expect(reconciliationWhere.params).toEqual([
+      LATE_PAYMENT_RECONCILIATION_ACTION,
+      'payment',
+      OFFICIAL_CURRENCY,
+    ]);
+    expect(reconciliationJoin.sql).toContain('entity_id');
+    expect(reconciliationJoin.sql).toContain('payments');
     const aggregateSelection = select.mock.calls[0][0] as Record<string, unknown>;
     const gross = dialect.sqlToQuery(aggregateSelection.grossAmount as never);
     const refunded = dialect.sqlToQuery(aggregateSelection.refundedAmount as never);

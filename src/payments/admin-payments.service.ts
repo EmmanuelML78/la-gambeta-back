@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { count, eq, sql } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
 import { PaymentStatus } from '../common/enums';
 import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { DrizzleService } from '../database/drizzle.service';
@@ -12,6 +12,7 @@ import {
 } from '../database/schema';
 import { buildAdminPaymentConditions, buildAdminPaymentOrder, validateAdminPaymentDateRange } from './admin-payment-query';
 import { buildPaymentFinancialSummarySelection } from './payment-financial-summary';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 import type { AdminPaymentPageDto, AdminPaymentQueryDto, AdminPaymentSummaryDto } from './dto';
 
 @Injectable()
@@ -85,7 +86,12 @@ export class AdminPaymentsService {
       this.drizzle.db
         .select({ total: sql<number>`count(*)::int` })
         .from(auditEvents)
-        .where(eq(auditEvents.action, 'late_payment_requires_reconciliation')),
+        .innerJoin(payments, eq(auditEvents.entityId, payments.id))
+        .where(and(
+          eq(auditEvents.action, LATE_PAYMENT_RECONCILIATION_ACTION),
+          eq(auditEvents.entityType, 'payment'),
+          eq(payments.currency, OFFICIAL_CURRENCY),
+        )),
     ]);
     const aggregate = totals[0] ?? {
       grossAmount: '0',
