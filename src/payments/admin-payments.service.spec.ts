@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { BookingStatus, PaymentStatus } from '../common/enums';
 import { OFFICIAL_CURRENCY } from '../common/payment.constants';
@@ -145,5 +146,77 @@ describe('AdminPaymentsService.summary', () => {
     expect(select.mock.calls[1][0]).toEqual({ status: payments.status, total: expect.anything() });
     expect(select.mock.calls[2][0]).toEqual({ total: expect.anything() });
     expect(totals.where.mock.calls[0][0]).not.toBe(auditEvents.action);
+  });
+});
+
+describe('AdminPaymentsService.findDetail', () => {
+  it('returns explicit payment, booking, user, safe evidence, reconciliation, and refund context', async () => {
+    const createdAt = new Date('2026-09-10T12:00:00.000Z');
+    const paymentId = '92d18ac6-c3af-4cfa-ae7f-a847f3163608';
+    const bookingId = 'aac8dc30-b7f9-45c4-a12a-0dceaf0f1522';
+    const row = {
+      id: paymentId, provider: 'polar', status: PaymentStatus.SUCCEEDED,
+      amount: '120000.00', currency: 'COP', refundedAmount: null,
+      createdAt, updatedAt: createdAt, paymentMethod: 'credit_card',
+      paymentType: 'credit_card', installments: 1, dateApproved: createdAt,
+      manualReview: true, bookingId, bookingStatus: BookingStatus.CANCELLED,
+      bookingDate: new Date('2026-09-10T00:00:00.000Z'), startTime: '18:30', endTime: '19:30',
+      userId: 'user-1', userName: null, firstName: 'Ana', lastName: 'Perez',
+      courtId: '42d18ac6-c3af-4cfa-ae7f-a847f3163608', courtName: 'Cancha Norte',
+      venueId: null, venueName: null,
+    };
+    const base = chain(['from', 'innerJoin', 'innerJoin', 'innerJoin', 'leftJoin', 'where'], 'limit', [row]);
+    const events = chain(['from', 'where'], 'orderBy', [{
+      id: 'event-1', fromStatus: PaymentStatus.PROCESSING, toStatus: PaymentStatus.SUCCEEDED,
+      actorType: 'provider', source: 'webhook', reason: 'payment_succeeded', createdAt,
+    }]);
+    const audits = chain(['from', 'where'], 'orderBy', [{
+      id: 'audit-1', action: 'late_payment_requires_reconciliation', actorType: 'provider',
+      source: 'webhook', reason: 'late_payment_requires_reconciliation', createdAt,
+      metadata: { cardToken: 'private' },
+    }]);
+    const history = chain(['from', 'where'], 'orderBy', [{
+      id: 'history-1', toStatus: BookingStatus.CANCELLED,
+      reason: 'booking_cancelled', createdAt: new Date('2026-09-09T23:30:00.000Z'),
+    }]);
+    const select = jest.fn()
+      .mockReturnValueOnce(base)
+      .mockReturnValueOnce(events)
+      .mockReturnValueOnce(audits)
+      .mockReturnValueOnce(history);
+
+    const result = await new AdminPaymentsService({ db: { select } } as never).findDetail(paymentId);
+    expect(result).toMatchObject({
+      id: paymentId, status: PaymentStatus.SUCCEEDED, amount: '120000.00',
+      booking: { id: bookingId, status: BookingStatus.CANCELLED },
+      user: { id: 'user-1', displayName: 'Ana Perez' },
+      events: [{ actorType: 'provider', source: 'webhook', reasonCode: 'payment_succeeded' }],
+      audits: [{ action: 'late_payment_requires_reconciliation' }],
+      reconciliation: { status: 'requires_attention', reasonCode: 'late_payment_requires_reconciliation' },
+      refundEligibility: { status: 'eligible', percentage: 100 },
+      refundCapability: { status: 'unavailable', reasonCode: 'provider_refund_not_supported' },
+    });
+    expect(result).not.toHaveProperty('email');
+    expect(result).not.toHaveProperty('metadata');
+    expect(result.audits[0]).not.toHaveProperty('metadata');
+
+    const dialect = new PgDialect();
+    const auditWhere = dialect.sqlToQuery(audits.where.mock.calls[0][0]);
+    expect(auditWhere.params).toEqual(['payment', paymentId, 'booking', bookingId]);
+    expect(dialect.sqlToQuery(events.orderBy.mock.calls[0][0]).sql).toContain('"payment_events"."created_at" asc');
+    expect(dialect.sqlToQuery(history.orderBy.mock.calls[0][1]).sql).toContain('"booking_status_history"."id" asc');
+    const paymentSelection = select.mock.calls[0][0] as Record<string, unknown>;
+    const auditSelection = select.mock.calls[2][0] as Record<string, unknown>;
+    expect(paymentSelection).not.toHaveProperty('email');
+    expect(paymentSelection).not.toHaveProperty('metadata');
+    expect(auditSelection).not.toHaveProperty('metadata');
+  });
+
+  it('throws not found without issuing evidence queries when payment is absent', async () => {
+    const base = chain(['from', 'innerJoin', 'innerJoin', 'innerJoin', 'leftJoin', 'where'], 'limit', []);
+    const select = jest.fn().mockReturnValue(base);
+    await expect(new AdminPaymentsService({ db: { select } } as never).findDetail('92d18ac6-c3af-4cfa-ae7f-a847f3163608'))
+      .rejects.toThrow(NotFoundException);
+    expect(select).toHaveBeenCalledTimes(1);
   });
 });

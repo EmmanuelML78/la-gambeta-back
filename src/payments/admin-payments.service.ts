@@ -1,19 +1,24 @@
-import { Injectable } from '@nestjs/common';
-import { and, count, eq, sql } from 'drizzle-orm';
-import { PaymentStatus } from '../common/enums';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { and, asc, count, desc, eq, or, sql } from 'drizzle-orm';
+import { BookingStatus, PaymentStatus } from '../common/enums';
+import { resolveBookingRefundEligibility } from '../bookings/booking-refund-eligibility';
 import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { DrizzleService } from '../database/drizzle.service';
 import {
   auditEvents,
+  bookingStatusHistory,
   bookings,
   courts,
   payments,
+  paymentEvents,
+  users,
   venues,
 } from '../database/schema';
+import { projectSafeAdminPaymentAudit, projectSafeAdminPaymentEvent } from './admin-payment-evidence';
 import { buildAdminPaymentConditions, buildAdminPaymentOrder, validateAdminPaymentDateRange } from './admin-payment-query';
 import { buildPaymentFinancialSummarySelection } from './payment-financial-summary';
 import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
-import type { AdminPaymentPageDto, AdminPaymentQueryDto, AdminPaymentSummaryDto } from './dto';
+import type { AdminPaymentDetailDto, AdminPaymentPageDto, AdminPaymentQueryDto, AdminPaymentSummaryDto } from './dto';
 
 @Injectable()
 export class AdminPaymentsService {
@@ -119,6 +124,119 @@ export class AdminPaymentsService {
       refundedCount: Number(aggregate.refundedCount),
       reconciliationEventCount: Number(reconciliationRows[0]?.total ?? 0),
       statusCounts,
+    };
+  }
+
+  async findDetail(id: string): Promise<AdminPaymentDetailDto> {
+    const [row] = await this.drizzle.db
+      .select({
+        id: payments.id,
+        provider: payments.provider,
+        status: payments.status,
+        amount: payments.amount,
+        currency: payments.currency,
+        refundedAmount: payments.refundedAmount,
+        createdAt: payments.createdAt,
+        updatedAt: payments.updatedAt,
+        paymentMethod: payments.paymentMethod,
+        paymentType: payments.paymentType,
+        installments: payments.installments,
+        dateApproved: payments.dateApproved,
+        manualReview: payments.manualReview,
+        bookingId: bookings.id,
+        bookingStatus: bookings.status,
+        bookingDate: bookings.bookingDate,
+        startTime: bookings.startTime,
+        endTime: bookings.endTime,
+        userId: users.id,
+        userName: users.name,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        courtId: courts.id,
+        courtName: courts.name,
+        venueId: venues.id,
+        venueName: venues.name,
+      })
+      .from(payments)
+      .innerJoin(bookings, eq(payments.bookingId, bookings.id))
+      .innerJoin(users, eq(bookings.userId, users.id))
+      .innerJoin(courts, eq(bookings.courtId, courts.id))
+      .leftJoin(venues, eq(courts.venueId, venues.id))
+      .where(eq(payments.id, id))
+      .limit(1);
+    if (!row) throw new NotFoundException('Payment not found');
+
+    const [eventRows, auditRows, historyRows] = await Promise.all([
+      this.drizzle.db
+        .select({
+          id: paymentEvents.id,
+          fromStatus: paymentEvents.fromStatus,
+          toStatus: paymentEvents.toStatus,
+          actorType: paymentEvents.actorType,
+          source: paymentEvents.source,
+          reason: paymentEvents.reason,
+          createdAt: paymentEvents.createdAt,
+        })
+        .from(paymentEvents)
+        .where(eq(paymentEvents.paymentId, row.id))
+        .orderBy(asc(paymentEvents.createdAt), asc(paymentEvents.id)),
+      this.drizzle.db
+        .select({
+          id: auditEvents.id,
+          action: auditEvents.action,
+          actorType: auditEvents.actorType,
+          source: auditEvents.source,
+          reason: auditEvents.reason,
+          createdAt: auditEvents.createdAt,
+        })
+        .from(auditEvents)
+        .where(or(
+          and(eq(auditEvents.entityType, 'payment'), eq(auditEvents.entityId, row.id)),
+          and(eq(auditEvents.entityType, 'booking'), eq(auditEvents.entityId, row.bookingId)),
+        ))
+        .orderBy(desc(auditEvents.createdAt), desc(auditEvents.id)),
+      this.drizzle.db
+        .select({
+          id: bookingStatusHistory.id,
+          toStatus: bookingStatusHistory.toStatus,
+          reason: bookingStatusHistory.reason,
+          createdAt: bookingStatusHistory.createdAt,
+        })
+        .from(bookingStatusHistory)
+        .where(eq(bookingStatusHistory.bookingId, row.bookingId))
+        .orderBy(asc(bookingStatusHistory.createdAt), asc(bookingStatusHistory.id)),
+    ]);
+    const events = eventRows.map(projectSafeAdminPaymentEvent);
+    const audits = auditRows
+      .map(projectSafeAdminPaymentAudit)
+      .filter((audit): audit is NonNullable<typeof audit> => audit !== null);
+    const reconciliationRequired = row.manualReview || audits.length > 0;
+    const refundEligibility = resolveBookingRefundEligibility({
+      status: row.bookingStatus as BookingStatus,
+      bookingDate: row.bookingDate,
+      startTime: row.startTime,
+      history: historyRows,
+    });
+    const displayName = row.userName?.trim() || `${row.firstName} ${row.lastName}`.trim();
+
+    return {
+      ...this.projectListItem(row),
+      user: { id: row.userId, displayName },
+      paymentMethod: row.paymentMethod,
+      paymentType: row.paymentType,
+      installments: row.installments,
+      dateApproved: row.dateApproved,
+      events,
+      audits,
+      reconciliation: {
+        status: reconciliationRequired ? 'requires_attention' : 'no_flags',
+        reasonCode: reconciliationRequired ? 'late_payment_requires_reconciliation' : null,
+      },
+      refundCapability: {
+        status: 'unavailable',
+        reasonCode: 'provider_refund_not_supported',
+      },
+      refundEligibility,
     };
   }
 
