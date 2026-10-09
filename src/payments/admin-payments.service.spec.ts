@@ -5,6 +5,7 @@ import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { auditEvents, bookings, payments } from '../database/schema';
 import { AdminPaymentQueryDto } from './dto';
 import { AdminPaymentsService } from './admin-payments.service';
+import { LEGACY_LATE_PAYMENT_RECONCILIATION_ACTION } from './admin-payment-evidence';
 import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 
 function chain(methods: string[], terminal: string, result: unknown) {
@@ -111,7 +112,7 @@ describe('AdminPaymentsService.summary', () => {
     expect(Object.values(result.statusCounts)).toEqual(Array(Object.values(PaymentStatus).length).fill(0));
   });
 
-  it('uses official currency and the exact reconciliation action as query predicates', async () => {
+  it('counts COP current and legacy reconciliation events by exact attempt without duplicates', async () => {
     const totals = chain(['from'], 'where', []);
     const statuses = chain(['from', 'where'], 'groupBy', []);
     const reconciliation = chain(['from', 'innerJoin'], 'where', []);
@@ -125,17 +126,20 @@ describe('AdminPaymentsService.summary', () => {
     }
     const reconciliationWhere = dialect.sqlToQuery(reconciliation.where.mock.calls[0][0]);
     const reconciliationJoin = dialect.sqlToQuery(reconciliation.innerJoin.mock.calls[0][1]);
-    expect(reconciliationWhere.sql).toContain('action');
-    expect(reconciliationWhere.sql).toContain('entity_type');
     expect(reconciliationWhere.sql).toContain('currency');
-    expect(reconciliationWhere.params).toEqual([
-      LATE_PAYMENT_RECONCILIATION_ACTION,
-      'payment',
-      OFFICIAL_CURRENCY,
+    expect(reconciliationWhere.params).toEqual([OFFICIAL_CURRENCY]);
+    expect(reconciliationJoin.sql).toContain('"audit_events"."action"');
+    expect(reconciliationJoin.sql).toContain('"audit_events"."entity_type"');
+    expect(reconciliationJoin.sql).toContain('"audit_events"."entity_id" = "payments"."id"::text');
+    expect(reconciliationJoin.sql).toContain('"audit_events"."entity_id" = "payments"."booking_id"::text');
+    expect(reconciliationJoin.sql).toContain('"audit_events"."correlation_id" = \'attempt:\' || "payments"."id"::text');
+    expect(reconciliationJoin.params).toEqual([
+      LATE_PAYMENT_RECONCILIATION_ACTION, 'payment',
+      LEGACY_LATE_PAYMENT_RECONCILIATION_ACTION, 'booking',
     ]);
-    expect(reconciliationJoin.sql).toContain('entity_id');
-    expect(reconciliationJoin.sql).toContain('payments');
     expect(reconciliationJoin.sql).toContain('"payments"."id"::text');
+    expect(reconciliationJoin.sql).toContain('"payments"."booking_id"::text');
+    expect(reconciliationJoin.sql).not.toContain('"audit_events"."entity_id"::uuid');
     const aggregateSelection = select.mock.calls[0][0] as Record<string, unknown>;
     const gross = dialect.sqlToQuery(aggregateSelection.grossAmount as never);
     const refunded = dialect.sqlToQuery(aggregateSelection.refundedAmount as never);
@@ -143,6 +147,8 @@ describe('AdminPaymentsService.summary', () => {
     expect(gross.sql).toContain('sum(case when');
     expect(refunded.sql).toContain('coalesce("payments"."refunded_amount", 0)');
     expect(net.sql).toContain(' - ');
+    const reconciliationCount = dialect.sqlToQuery((select.mock.calls[2][0] as Record<string, unknown>).total as never);
+    expect(reconciliationCount.sql).toContain('count(distinct "audit_events"."id")::int');
     expect(select.mock.calls[1][0]).toEqual({ status: payments.status, total: expect.anything() });
     expect(select.mock.calls[2][0]).toEqual({ total: expect.anything() });
     expect(totals.where.mock.calls[0][0]).not.toBe(auditEvents.action);
