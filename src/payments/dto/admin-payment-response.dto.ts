@@ -27,3 +27,17 @@ export interface AdminPaymentPageDto {
   limit: number;
   totalPages: number;
 }
+
+export interface AdminPaymentSummaryDto {
+  currency: 'COP';
+  grossAmount: string;
+  refundedAmount: string;
+  netAmount: string;
+  attemptCount: number;
+  successfulCount: number;
+  openCount: number;
+  failedCount: number;
+  refundedCount: number;
+  reconciliationEventCount: number;
+  statusCounts: Record<PaymentStatus, number>;
+}

@@ -26,4 +26,18 @@ describe('AdminPaymentsController list access', () => {
     expect(() => guard.canActivate(context(UserRole.USER))).toThrow(ForbiddenException);
     expect(guard.canActivate(context(UserRole.ADMIN))).toBe(true);
   });
+
+  it('registers the COP summary as a separate ADMIN-only route', () => {
+    const handler = AdminPaymentsController.prototype.summary;
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('summary');
+    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(0);
+    expect(Reflect.getMetadata(ROLES_KEY, handler)).toEqual([UserRole.ADMIN]);
+    const summaryGuard = new RolesGuard(new Reflector());
+    const context = {
+      getHandler: () => handler,
+      getClass: () => AdminPaymentsController,
+      switchToHttp: () => ({ getRequest: () => ({ user: { role: UserRole.USER } }) }),
+    } as unknown as ExecutionContext;
+    expect(() => summaryGuard.canActivate(context)).toThrow(ForbiddenException);
+  });
 });
