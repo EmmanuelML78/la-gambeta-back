@@ -20,6 +20,7 @@ import { VenuesModule } from './venues/venues.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { ContactRequestsModule } from './contact-requests/contact-requests.module';
 // import { CourtsProfessionalModule } from './courts/courts.module.professional';
 
 // Guards, Interceptors, and Pipes
@@ -71,6 +72,7 @@ import { ValidationPipe } from '@nestjs/common';
     BookingsModule,
     PaymentsModule,
     ReservationsModule,
+    ContactRequestsModule,
     // CourtsProfessionalModule,
   ],
   controllers: [AppController],
