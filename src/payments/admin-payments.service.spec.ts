@@ -159,7 +159,9 @@ describe('AdminPaymentsService.findDetail', () => {
       amount: '120000.00', currency: 'COP', refundedAmount: null,
       createdAt, updatedAt: createdAt, paymentMethod: 'credit_card',
       paymentType: 'credit_card', installments: 1, dateApproved: createdAt,
-      manualReview: true, bookingId, bookingStatus: BookingStatus.CANCELLED,
+      manualReview: true,
+      manualReviewReason: 'Payment succeeded after booking entered CANCELLED; manual reconciliation required',
+      bookingId, bookingStatus: BookingStatus.CANCELLED,
       bookingDate: new Date('2026-09-10T00:00:00.000Z'), startTime: '18:30', endTime: '19:30',
       userId: 'user-1', userName: null, firstName: 'Ana', lastName: 'Perez',
       courtId: '42d18ac6-c3af-4cfa-ae7f-a847f3163608', courtName: 'Cancha Norte',
@@ -202,9 +204,10 @@ describe('AdminPaymentsService.findDetail', () => {
 
     const dialect = new PgDialect();
     const auditWhere = dialect.sqlToQuery(audits.where.mock.calls[0][0]);
-    expect(auditWhere.params).toEqual(['payment', paymentId, 'booking', `attempt:${paymentId}`]);
+    expect(auditWhere.params).toEqual(['payment', paymentId, 'booking', bookingId, `attempt:${paymentId}`]);
     expect(auditWhere.sql).toContain('"audit_events"."entity_id" = $2');
-    expect(auditWhere.sql).toContain('"audit_events"."correlation_id" = $4');
+    expect(auditWhere.sql).toContain('"audit_events"."entity_id" = $4');
+    expect(auditWhere.sql).toContain('"audit_events"."correlation_id" = $5');
     expect(dialect.sqlToQuery(events.orderBy.mock.calls[0][0]).sql).toContain('"payment_events"."created_at" asc');
     expect(dialect.sqlToQuery(history.orderBy.mock.calls[0][1]).sql).toContain('"booking_status_history"."id" asc');
     const paymentSelection = select.mock.calls[0][0] as Record<string, unknown>;
@@ -222,7 +225,9 @@ describe('AdminPaymentsService.findDetail', () => {
       amount: '120000.00', currency: 'COP', refundedAmount: null,
       createdAt, updatedAt: createdAt, paymentMethod: 'credit_card',
       paymentType: 'credit_card', installments: 1, dateApproved: createdAt,
-      manualReview: false, bookingId: 'aac8dc30-b7f9-45c4-a12a-0dceaf0f1522',
+      manualReview: false,
+      manualReviewReason: 'Payment succeeded after booking entered CANCELLED; manual reconciliation required',
+      bookingId: 'aac8dc30-b7f9-45c4-a12a-0dceaf0f1522',
       bookingStatus: BookingStatus.ACTIVE, bookingDate: createdAt,
       startTime: '18:30', endTime: '19:30', userId: 'user-1', userName: 'Ana Perez',
       firstName: null, lastName: null, courtId: '42d18ac6-c3af-4cfa-ae7f-a847f3163608',
@@ -246,6 +251,32 @@ describe('AdminPaymentsService.findDetail', () => {
     expect(result.reconciliation).toEqual({ status: 'no_flags', reasonCode: null });
   });
 
+  it('projects uncertain provider review reason without exposing free-form metadata', async () => {
+    const createdAt = new Date('2026-09-10T12:00:00.000Z');
+    const paymentId = '92d18ac6-c3af-4cfa-ae7f-a847f3163608';
+    const base = chain(['from', 'innerJoin', 'innerJoin', 'innerJoin', 'leftJoin', 'where'], 'limit', [{
+      id: paymentId, provider: 'polar', status: PaymentStatus.PROCESSING,
+      amount: '120000.00', currency: 'COP', refundedAmount: null,
+      createdAt, updatedAt: createdAt, paymentMethod: null, paymentType: null,
+      installments: null, dateApproved: null, manualReview: true,
+      manualReviewReason: 'Provider checkout outcome is uncertain; reconcile before retrying',
+      bookingId: 'aac8dc30-b7f9-45c4-a12a-0dceaf0f1522', bookingStatus: BookingStatus.PENDING,
+      bookingDate: createdAt, startTime: '18:30', endTime: '19:30',
+      userId: 'user-1', userName: 'Ana Perez', firstName: null, lastName: null,
+      courtId: '42d18ac6-c3af-4cfa-ae7f-a847f3163608', courtName: 'Cancha Norte',
+      venueId: null, venueName: null,
+    }]);
+    const select = jest.fn()
+      .mockReturnValueOnce(base)
+      .mockReturnValueOnce(chain(['from', 'where'], 'orderBy', []))
+      .mockReturnValueOnce(chain(['from', 'where'], 'orderBy', []))
+      .mockReturnValueOnce(chain(['from', 'where'], 'orderBy', []));
+
+    const result = await new AdminPaymentsService({ db: { select } } as never).findDetail(paymentId);
+    expect(result.reconciliation).toEqual({ status: 'requires_attention', reasonCode: 'provider_outcome_uncertain' });
+    expect(result).not.toHaveProperty('manualReviewReason');
+  });
+
   it('scopes booking audit history to the exact attempt when a booking has multiple payments', async () => {
     const bookingId = 'aac8dc30-b7f9-45c4-a12a-0dceaf0f1522';
     const paymentIds = [
@@ -259,7 +290,7 @@ describe('AdminPaymentsService.findDetail', () => {
         amount: '120000.00', currency: 'COP', refundedAmount: null,
         createdAt: new Date('2026-09-10T12:00:00.000Z'), updatedAt: new Date('2026-09-10T12:00:00.000Z'),
         paymentMethod: null, paymentType: null, installments: null, dateApproved: null,
-        manualReview: false, bookingId, bookingStatus: BookingStatus.ACTIVE,
+        manualReview: false, manualReviewReason: null, bookingId, bookingStatus: BookingStatus.ACTIVE,
         bookingDate: new Date('2026-09-10T00:00:00.000Z'), startTime: '18:30', endTime: '19:30',
         userId: 'user-1', userName: 'Ana Perez', firstName: null, lastName: null,
         courtId: '42d18ac6-c3af-4cfa-ae7f-a847f3163608', courtName: 'Cancha Norte',
@@ -278,8 +309,9 @@ describe('AdminPaymentsService.findDetail', () => {
     const auditQueries = [select.mock.results[2].value, select.mock.results[6].value];
     for (const [index, auditQuery] of auditQueries.entries()) {
       const compiled = dialect.sqlToQuery(auditQuery.where.mock.calls[0][0]);
-      expect(compiled.params).toEqual(['payment', paymentIds[index], 'booking', `attempt:${paymentIds[index]}`]);
-      expect(compiled.sql).toContain('"audit_events"."correlation_id" = $4');
+      expect(compiled.params).toEqual(['payment', paymentIds[index], 'booking', bookingId, `attempt:${paymentIds[index]}`]);
+      expect(compiled.sql).toContain('"audit_events"."entity_id" = $4');
+      expect(compiled.sql).toContain('"audit_events"."correlation_id" = $5');
     }
   });
 
