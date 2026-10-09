@@ -5,6 +5,7 @@ import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { DrizzleService } from '../database/drizzle.service';
 import { bookings, payments, Payment, PaymentFlow } from '../database/schema';
 import { PaymentsService } from './payments.service';
+import { CreatePreferenceDto } from './dto';
 import { PaymentEvent, PaymentProvider } from './providers/payment-provider.interface';
 
 const BOOKING_ID = '123e4567-e89b-12d3-a456-426614174000';
@@ -131,6 +132,125 @@ function providerEvent(overrides: Partial<PaymentEvent> = {}): PaymentEvent {
 }
 
 describe('PaymentsService direct card and webhook attempt integrity', () => {
+  it('replays a successful direct-card attempt after the booking is active without charging again', async () => {
+    const activeBooking = {
+      id: BOOKING_ID,
+      userId: 'user-1',
+      totalPrice: '90000.00',
+      status: BookingStatus.ACTIVE,
+    };
+    const completedAttempt = makeAttempt({
+      status: PaymentStatus.SUCCEEDED,
+      providerPaymentId: 'mp-payment-1',
+      mpPaymentId: 'mp-payment-1',
+    });
+    const { service, db, tx, provider } = createService();
+    db.select.mockReturnValueOnce(queryResult([activeBooking]));
+    tx.select
+      .mockReturnValueOnce(txQuery([activeBooking]))
+      .mockReturnValueOnce(txQuery([completedAttempt]));
+
+    await expect(
+      service.processPayment(
+        { bookingId: BOOKING_ID, token: 'token-1' },
+        'user-1',
+        UserRole.USER,
+        KEY,
+      ),
+    ).resolves.toMatchObject({
+      paymentId: 'mp-payment-1',
+      paymentAttemptId: ATTEMPT_ID,
+      status: PaymentStatus.SUCCEEDED,
+    });
+    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(provider.chargeCard).not.toHaveBeenCalled();
+  });
+
+  it('replays a late successful direct-card attempt on a cancelled booking without reactivating or charging', async () => {
+    const cancelledBooking = {
+      id: BOOKING_ID,
+      userId: 'user-1',
+      totalPrice: '90000.00',
+      status: BookingStatus.CANCELLED,
+    };
+    const completedAttempt = makeAttempt({
+      status: PaymentStatus.SUCCEEDED,
+      providerPaymentId: 'mp-payment-1',
+      mpPaymentId: 'mp-payment-1',
+      manualReview: true,
+    });
+    const { service, db, tx, provider } = createService();
+    db.select.mockReturnValueOnce(queryResult([cancelledBooking]));
+    tx.select
+      .mockReturnValueOnce(txQuery([cancelledBooking]))
+      .mockReturnValueOnce(txQuery([completedAttempt]));
+
+    await expect(
+      service.processPayment(
+        { bookingId: BOOKING_ID, token: 'token-1' },
+        'user-1',
+        UserRole.USER,
+        KEY,
+      ),
+    ).resolves.toMatchObject({ paymentId: 'mp-payment-1', status: PaymentStatus.SUCCEEDED });
+    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(provider.chargeCard).not.toHaveBeenCalled();
+  });
+
+  it('still rejects a new direct-card key after the booking is active', async () => {
+    const activeBooking = {
+      id: BOOKING_ID,
+      userId: 'user-1',
+      totalPrice: '90000.00',
+      status: BookingStatus.ACTIVE,
+    };
+    const { service, db, tx, provider } = createService();
+    db.select.mockReturnValueOnce(queryResult([activeBooking]));
+    tx.select
+      .mockReturnValueOnce(txQuery([activeBooking]))
+      .mockReturnValueOnce(txQuery([]));
+
+    await expect(
+      service.processPayment(
+        { bookingId: BOOKING_ID, token: 'token-2' },
+        'user-1',
+        UserRole.USER,
+        'card-key-0002',
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(provider.chargeCard).not.toHaveBeenCalled();
+  });
+
+  it('keeps hosted-checkout successful-attempt semantics on an active booking', async () => {
+    const activeBooking = {
+      id: BOOKING_ID,
+      userId: 'user-1',
+      totalPrice: '90000.00',
+      status: BookingStatus.ACTIVE,
+    };
+    const completedAttempt = makeAttempt({
+      paymentFlow: PaymentFlow.HOSTED_CHECKOUT,
+      status: PaymentStatus.SUCCEEDED,
+      providerCheckoutId: 'checkout-1',
+      checkoutUrl: 'https://checkout.example/1',
+    });
+    const { service, tx, provider } = createService();
+    tx.select
+      .mockReturnValueOnce(txQuery([activeBooking]))
+      .mockReturnValueOnce(txQuery([completedAttempt]));
+
+    await expect(
+      service.createPreference(
+        { bookingId: BOOKING_ID } as CreatePreferenceDto,
+        'user-1',
+        UserRole.USER,
+        KEY,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.select).toHaveBeenCalledTimes(2);
+    expect(provider.createCheckout).not.toHaveBeenCalled();
+  });
+
   it('creates a direct-card attempt with explicit flow before provider work', async () => {
     const created = makeAttempt({ paymentFlow: PaymentFlow.DIRECT_CARD });
     const values = jest.fn().mockReturnValue({ returning: jest.fn().mockResolvedValue([created]) });

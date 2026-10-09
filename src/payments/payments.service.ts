@@ -211,6 +211,7 @@ export class PaymentsService {
       dto.bookingId,
       userId,
       userRole,
+      true,
     );
     const idempotencyKey = parseIdempotencyKey(rawIdempotencyKey);
     const resolution = await this.resolveOrCreateCardAttempt(
@@ -478,7 +479,6 @@ export class PaymentsService {
         if (userId && userRole !== UserRole.ADMIN && booking.userId !== userId) {
           throw new ForbiddenException('Booking does not belong to this user');
         }
-        this.assertBookingCanStartPayment(booking);
 
         const [byKey] = await tx
           .select()
@@ -496,6 +496,8 @@ export class PaymentsService {
           }
           return byKey;
         }
+
+        this.assertBookingCanStartPayment(booking);
 
         const [successful] = await tx.select().from(payments).where(and(
           eq(payments.bookingId, bookingId),
@@ -549,7 +551,6 @@ export class PaymentsService {
       return await this.drizzleService.db.transaction(async (tx) => {
         const [lockedBooking] = await tx.select().from(bookings).where(eq(bookings.id, booking.id)).limit(1).for('update');
         if (!lockedBooking) throw new NotFoundException('Booking not found');
-        this.assertBookingCanStartPayment(lockedBooking);
 
         const [sameKey] = await tx.select().from(payments).where(and(
           eq(payments.bookingId, booking.id), eq(payments.idempotencyKey, idempotencyKey),
@@ -558,6 +559,8 @@ export class PaymentsService {
           this.assertAttemptFlow(sameKey.paymentFlow, PaymentFlow.DIRECT_CARD);
           return { attempt: sameKey, created: false };
         }
+
+        this.assertBookingCanStartPayment(lockedBooking);
 
         const [successful] = await tx.select().from(payments).where(and(
           eq(payments.bookingId, booking.id), inArray(payments.status, [...SUCCESSFUL_PAYMENT_STATUSES]),
