@@ -1,6 +1,5 @@
 import {
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -18,16 +17,6 @@ export class ProcessPaymentDto {
   @IsNotEmpty()
   @IsUUID()
   bookingId: string;
-
-  @ApiProperty({
-    description: 'Payment amount',
-    example: 5000.5,
-    minimum: 1,
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(1)
-  amount: number;
 
   @ApiProperty({
     description: 'Token from card tokenization',

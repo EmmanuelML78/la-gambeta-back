@@ -5,6 +5,19 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
+export function getCorsOptions(frontendUrl: string) {
+  return {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      frontendUrl,
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+  };
+}
+
 async function bootstrap() {
   // rawBody: los webhooks de Polar (Standard Webhooks) firman los bytes
   // originales del body — re-serializar el JSON parseado rompe la firma.
@@ -16,16 +29,11 @@ async function bootstrap() {
   app.use(helmet());
 
   // Enable CORS
-  app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
+  app.enableCors(
+    getCorsOptions(
       configService.get('FRONTEND_URL', 'http://localhost:3000'),
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
+    ),
+  );
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -73,4 +81,6 @@ async function bootstrap() {
   logger.log('🎾 La Gambeta - Sistema de reservas de canchas');
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}
