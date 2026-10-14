@@ -1,9 +1,27 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../common/enums';
 import { ContactRequestsService } from './contact-requests.service';
-import { CreateContactRequestDto, CreatedContactRequestDto } from './dto';
+import {
+  ContactRequestPageDto,
+  ContactRequestQueryDto,
+  ContactRequestResponseDto,
+  CreateContactRequestDto,
+  CreatedContactRequestDto,
+  UpdateContactRequestStatusDto,
+} from './dto';
 
 @ApiTags('Contact requests')
 @ApiBearerAuth()
@@ -26,5 +44,34 @@ export class ContactRequestsController {
       createdAt: created.createdAt,
       message: 'Recibimos tu solicitud.',
     };
+  }
+
+  @Get()
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'List contact requests (Admin only)' })
+  @ApiResponse({ status: 200, type: ContactRequestPageDto })
+  findAll(@Query() query: ContactRequestQueryDto): Promise<ContactRequestPageDto> {
+    return this.service.findAll(query);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get a contact request (Admin only)' })
+  @ApiResponse({ status: 200, type: ContactRequestResponseDto })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ContactRequestResponseDto> {
+    return this.service.findOne(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Change contact request status (Admin only)' })
+  @ApiResponse({ status: 200, type: ContactRequestResponseDto })
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateContactRequestStatusDto,
+  ): Promise<ContactRequestResponseDto> {
+    return this.service.updateStatus(id, dto.status);
   }
 }
