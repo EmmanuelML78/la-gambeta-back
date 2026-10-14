@@ -1,8 +1,10 @@
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { BookingStatus, PaymentStatus } from '../common/enums';
-import { bookings } from '../database/schema';
+import { OFFICIAL_CURRENCY } from '../common/payment.constants';
+import { auditEvents, bookings, payments } from '../database/schema';
 import { AdminPaymentQueryDto } from './dto';
 import { AdminPaymentsService } from './admin-payments.service';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 
 function chain(methods: string[], terminal: string, result: unknown) {
   const query: Record<string, jest.Mock> = {};
@@ -69,5 +71,79 @@ describe('AdminPaymentsService.findAll', () => {
     const service = new AdminPaymentsService({ db: { select: jest.fn().mockReturnValueOnce(page).mockReturnValueOnce(count) } } as never);
     expect(await service.findAll({ page: 1, limit: 20, sortBy: 'createdAt', sortOrder: 'desc' } as AdminPaymentQueryDto)
       ).toMatchObject({ items: [], total: 0, totalPages: 0 });
+  });
+});
+
+describe('AdminPaymentsService.summary', () => {
+  it('returns canonical COP aggregates and filters late-payment reconciliation events', async () => {
+    const totals = chain(['from'], 'where', [{
+      grossAmount: '500000.00', refundedAmount: '100000.00', netAmount: '400000.00',
+      attemptCount: '9', successfulCount: '4', openCount: '2', failedCount: '3', refundedCount: '1',
+    }]);
+    const statuses = chain(['from', 'where'], 'groupBy', [
+      { status: PaymentStatus.SUCCEEDED, total: '3' },
+      { status: PaymentStatus.REFUNDED, total: '1' },
+    ]);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', [{ total: '2' }]);
+    const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
+    const result = await new AdminPaymentsService({ db: { select } } as never).summary();
+    expect(result).toMatchObject({
+      currency: OFFICIAL_CURRENCY, grossAmount: '500000.00', refundedAmount: '100000.00',
+      netAmount: '400000.00', attemptCount: 9, successfulCount: 4, openCount: 2,
+      failedCount: 3, refundedCount: 1, reconciliationEventCount: 2,
+      statusCounts: { [PaymentStatus.SUCCEEDED]: 3, [PaymentStatus.REFUNDED]: 1, [PaymentStatus.PENDING]: 0 },
+    });
+  });
+
+  it('returns zeroed aggregates and a complete status map when there is no data', async () => {
+    const totals = chain(['from'], 'where', []);
+    const statuses = chain(['from', 'where'], 'groupBy', []);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', []);
+    const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
+    const result = await new AdminPaymentsService({ db: { select } } as never).summary();
+    expect(result.currency).toBe('COP');
+    expect(result.grossAmount).toBe('0');
+    expect(result.refundedAmount).toBe('0');
+    expect(result.netAmount).toBe('0');
+    expect(result.attemptCount).toBe(0);
+    expect(result.reconciliationEventCount).toBe(0);
+    expect(Object.values(result.statusCounts)).toEqual(Array(Object.values(PaymentStatus).length).fill(0));
+  });
+
+  it('uses official currency and the exact reconciliation action as query predicates', async () => {
+    const totals = chain(['from'], 'where', []);
+    const statuses = chain(['from', 'where'], 'groupBy', []);
+    const reconciliation = chain(['from', 'innerJoin'], 'where', []);
+    const select = jest.fn().mockReturnValueOnce(totals).mockReturnValueOnce(statuses).mockReturnValueOnce(reconciliation);
+    await new AdminPaymentsService({ db: { select } } as never).summary();
+    const dialect = new PgDialect();
+    for (const where of [totals.where.mock.calls[0][0], statuses.where.mock.calls[0][0]]) {
+      const compiled = dialect.sqlToQuery(where);
+      expect(compiled.sql).toContain('currency');
+      expect(compiled.params).toContain(OFFICIAL_CURRENCY);
+    }
+    const reconciliationWhere = dialect.sqlToQuery(reconciliation.where.mock.calls[0][0]);
+    const reconciliationJoin = dialect.sqlToQuery(reconciliation.innerJoin.mock.calls[0][1]);
+    expect(reconciliationWhere.sql).toContain('action');
+    expect(reconciliationWhere.sql).toContain('entity_type');
+    expect(reconciliationWhere.sql).toContain('currency');
+    expect(reconciliationWhere.params).toEqual([
+      LATE_PAYMENT_RECONCILIATION_ACTION,
+      'payment',
+      OFFICIAL_CURRENCY,
+    ]);
+    expect(reconciliationJoin.sql).toContain('entity_id');
+    expect(reconciliationJoin.sql).toContain('payments');
+    expect(reconciliationJoin.sql).toContain('"payments"."id"::text');
+    const aggregateSelection = select.mock.calls[0][0] as Record<string, unknown>;
+    const gross = dialect.sqlToQuery(aggregateSelection.grossAmount as never);
+    const refunded = dialect.sqlToQuery(aggregateSelection.refundedAmount as never);
+    const net = dialect.sqlToQuery(aggregateSelection.netAmount as never);
+    expect(gross.sql).toContain('sum(case when');
+    expect(refunded.sql).toContain('coalesce("payments"."refunded_amount", 0)');
+    expect(net.sql).toContain(' - ');
+    expect(select.mock.calls[1][0]).toEqual({ status: payments.status, total: expect.anything() });
+    expect(select.mock.calls[2][0]).toEqual({ total: expect.anything() });
+    expect(totals.where.mock.calls[0][0]).not.toBe(auditEvents.action);
   });
 });

@@ -33,6 +33,7 @@ import {
   WebhookContext,
 } from './providers/payment-provider.interface';
 import { canReplacePaymentStatus } from './payment-status-transition';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 import { parseIdempotencyKey } from './idempotency-key';
 
 const OPEN_PAYMENT_STATUSES = [
@@ -754,7 +755,7 @@ export class PaymentsService {
       .where(eq(payments.id, payment.id));
     await tx.insert(auditEvents).values({
       actorType: 'system',
-      action: 'late_payment_after_booking_terminal',
+      action: LATE_PAYMENT_RECONCILIATION_ACTION,
       entityType: 'payment',
       entityId: payment.id,
       source,

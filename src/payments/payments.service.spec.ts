@@ -7,6 +7,7 @@ import { bookings, payments, Payment, PaymentFlow } from '../database/schema';
 import { PaymentsService } from './payments.service';
 import { CreatePreferenceDto } from './dto';
 import { PaymentEvent, PaymentProvider } from './providers/payment-provider.interface';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 
 const BOOKING_ID = '123e4567-e89b-12d3-a456-426614174000';
 const ATTEMPT_ID = '223e4567-e89b-12d3-a456-426614174000';
@@ -573,8 +574,13 @@ describe('PaymentsService direct card and webhook attempt integrity', () => {
       expect.objectContaining({ manualReview: true, manualReviewAt: expect.any(Date) }),
     ]));
     expect(auditValues).toEqual(expect.arrayContaining([
-      expect.objectContaining({ action: 'late_payment_after_booking_terminal', entityId: ATTEMPT_ID }),
+      expect.objectContaining({
+        action: LATE_PAYMENT_RECONCILIATION_ACTION,
+        entityType: 'payment',
+        entityId: ATTEMPT_ID,
+      }),
     ]));
+    expect(LATE_PAYMENT_RECONCILIATION_ACTION).toBe('late_payment_after_booking_terminal');
   });
 
   it('does not cancel a booking for an older failure while another attempt remains open', async () => {

@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { count, eq } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
+import { PaymentStatus } from '../common/enums';
+import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 import { DrizzleService } from '../database/drizzle.service';
 import {
+  auditEvents,
   bookings,
   courts,
   payments,
   venues,
 } from '../database/schema';
 import { buildAdminPaymentConditions, buildAdminPaymentOrder, validateAdminPaymentDateRange } from './admin-payment-query';
-import type { AdminPaymentPageDto, AdminPaymentQueryDto } from './dto';
+import { buildPaymentFinancialSummarySelection } from './payment-financial-summary';
+import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
+import type { AdminPaymentPageDto, AdminPaymentQueryDto, AdminPaymentSummaryDto } from './dto';
 
 @Injectable()
 export class AdminPaymentsService {
@@ -64,6 +69,56 @@ export class AdminPaymentsService {
       page: query.page,
       limit: query.limit,
       totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+    };
+  }
+
+  async summary(): Promise<AdminPaymentSummaryDto> {
+    const [totals, statusRows, reconciliationRows] = await Promise.all([
+      this.drizzle.db
+        .select(buildPaymentFinancialSummarySelection())
+        .from(payments)
+        .where(eq(payments.currency, OFFICIAL_CURRENCY)),
+      this.drizzle.db
+        .select({ status: payments.status, total: sql<number>`count(*)::int` })
+        .from(payments)
+        .where(eq(payments.currency, OFFICIAL_CURRENCY))
+        .groupBy(payments.status),
+      this.drizzle.db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(auditEvents)
+        .innerJoin(payments, eq(auditEvents.entityId, sql`${payments.id}::text`))
+        .where(and(
+          eq(auditEvents.action, LATE_PAYMENT_RECONCILIATION_ACTION),
+          eq(auditEvents.entityType, 'payment'),
+          eq(payments.currency, OFFICIAL_CURRENCY),
+        )),
+    ]);
+    const aggregate = totals[0] ?? {
+      grossAmount: '0',
+      refundedAmount: '0',
+      netAmount: '0',
+      attemptCount: 0,
+      successfulCount: 0,
+      openCount: 0,
+      failedCount: 0,
+      refundedCount: 0,
+    };
+    const statusCounts = Object.fromEntries(
+      Object.values(PaymentStatus).map((status) => [status, 0]),
+    ) as Record<PaymentStatus, number>;
+    for (const row of statusRows) statusCounts[row.status] = Number(row.total);
+    return {
+      currency: OFFICIAL_CURRENCY,
+      grossAmount: aggregate.grossAmount,
+      refundedAmount: aggregate.refundedAmount,
+      netAmount: aggregate.netAmount,
+      attemptCount: Number(aggregate.attemptCount),
+      successfulCount: Number(aggregate.successfulCount),
+      openCount: Number(aggregate.openCount),
+      failedCount: Number(aggregate.failedCount),
+      refundedCount: Number(aggregate.refundedCount),
+      reconciliationEventCount: Number(reconciliationRows[0]?.total ?? 0),
+      statusCounts,
     };
   }
 
