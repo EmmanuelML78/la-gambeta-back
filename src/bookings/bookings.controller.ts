@@ -28,6 +28,8 @@ import {
   BookingResponseDto,
   AvailabilityQueryDto,
   CourtAvailabilityDto,
+  AdminBookingQueryDto,
+  AdminBookingPageDto,
 } from './dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -137,6 +139,17 @@ export class BookingsController {
     @Query() query: AvailabilityQueryDto,
   ): Promise<CourtAvailabilityDto[]> {
     return this.bookingsService.getAvailability(query);
+  }
+
+  @Get('admin')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get a paginated booking list (Admin only)' })
+  @ApiResponse({ status: 200, type: AdminBookingPageDto })
+  @ApiResponse({ status: 403, description: 'Forbidden. Admin role required.' })
+  async findAllAdminPaginated(
+    @Query() query: AdminBookingQueryDto,
+  ): Promise<AdminBookingPageDto> {
+    return this.bookingsService.findAllAdminPaginated(query);
   }
 
   @Get(':id')

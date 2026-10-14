@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, desc, SQL } from 'drizzle-orm';
+import { eq, and, or, desc, SQL, count, sql } from 'drizzle-orm';
 import { DrizzleService } from '../database/drizzle.service';
 import {
   bookings,
@@ -22,6 +22,8 @@ import {
   AvailabilityQueryDto,
   CourtAvailabilityDto,
   TimeSlotDto,
+  AdminBookingPageDto,
+  AdminBookingQueryDto,
 } from './dto';
 import { BookingStatus, UserRole } from '../common/enums';
 import { CourtResponseDto } from '../courts/dto';
@@ -142,6 +144,55 @@ export class BookingsService {
         ? this.mapCourtToResponseDto(result.court)
         : undefined,
     }));
+  }
+
+  async findAllAdminPaginated(
+    query: AdminBookingQueryDto,
+  ): Promise<AdminBookingPageDto> {
+    const where = query.status ? eq(bookings.status, query.status) : undefined;
+    const offset = (query.page - 1) * query.limit;
+    const [rows, countRows] = await Promise.all([
+      this.drizzle.db
+        .select({
+          id: bookings.id,
+          bookingDate: bookings.bookingDate,
+          startTime: bookings.startTime,
+          endTime: bookings.endTime,
+          status: bookings.status,
+          totalPrice: bookings.totalPrice,
+          createdAt: bookings.createdAt,
+          userId: users.id,
+          userName: sql<string>`coalesce(nullif(${users.name}, ''), concat_ws(' ', ${users.firstName}, ${users.lastName}))`,
+          courtId: courts.id,
+          courtName: courts.name,
+        })
+        .from(bookings)
+        .leftJoin(users, eq(bookings.userId, users.id))
+        .leftJoin(courts, eq(bookings.courtId, courts.id))
+        .where(where)
+        .orderBy(desc(bookings.createdAt), desc(bookings.id))
+        .limit(query.limit)
+        .offset(offset),
+      this.drizzle.db.select({ total: count() }).from(bookings).where(where),
+    ]);
+
+    const total = Number(countRows[0]?.total ?? 0);
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        bookingDate: row.bookingDate,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        status: row.status,
+        totalPrice: row.totalPrice,
+        user: { id: row.userId, name: row.userName },
+        court: { id: row.courtId, name: row.courtName },
+      })),
+      total,
+      page: query.page,
+      limit: query.limit,
+      totalPages: total === 0 ? 0 : Math.ceil(total / query.limit),
+    };
   }
 
   async findOne(
