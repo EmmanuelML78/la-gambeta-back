@@ -35,8 +35,8 @@ describe('AdminPaymentReviewController authorization', () => {
 describe('PaymentsModule admin controller wiring', () => {
   it('registers payment listing alongside manual review and public payment routes', () => {
     expect(Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, PaymentsModule)).toEqual([
-      AdminPaymentsController,
       AdminPaymentReviewController,
+      AdminPaymentsController,
       PaymentsController,
     ]);
   });

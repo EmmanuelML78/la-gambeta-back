@@ -1,4 +1,9 @@
 import { BookingStatus, PaymentStatus } from '../../common/enums';
+import type { BookingRefundEligibility } from '../../bookings/booking-refund-eligibility';
+import type {
+  AdminPaymentAuditProjection,
+  AdminPaymentEventProjection,
+} from '../admin-payment-evidence';
 
 export interface AdminPaymentListItemDto {
   id: string;
@@ -40,4 +45,23 @@ export interface AdminPaymentSummaryDto {
   refundedCount: number;
   reconciliationEventCount: number;
   statusCounts: Record<PaymentStatus, number>;
+}
+
+export interface AdminPaymentDetailDto extends AdminPaymentListItemDto {
+  user: { id: string; displayName: string };
+  paymentMethod: string | null;
+  paymentType: string | null;
+  installments: number | null;
+  dateApproved: Date | null;
+  events: AdminPaymentEventProjection[];
+  audits: AdminPaymentAuditProjection[];
+  reconciliation: {
+    status: 'no_flags' | 'requires_attention';
+    reasonCode: 'late_payment_requires_reconciliation' | null;
+  };
+  refundCapability: {
+    status: 'unavailable';
+    reasonCode: 'provider_refund_not_supported';
+  };
+  refundEligibility: BookingRefundEligibility;
 }

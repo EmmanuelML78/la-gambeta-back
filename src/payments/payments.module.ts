@@ -31,7 +31,7 @@ import {
           : new PolarAdapter(config),
     },
   ],
-  controllers: [AdminPaymentsController, AdminPaymentReviewController, PaymentsController],
+  controllers: [AdminPaymentReviewController, AdminPaymentsController, PaymentsController],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}
