@@ -1,8 +1,12 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../common/enums';
 import { AdminPaymentReviewController } from './admin-payment-review.controller';
+import { AdminPaymentsController } from './admin-payments.controller';
+import { PaymentsController } from './payments.controller';
+import { PaymentsModule } from './payments.module';
 
 describe('AdminPaymentReviewController authorization', () => {
   const guard = new RolesGuard(new Reflector());
@@ -25,5 +29,15 @@ describe('AdminPaymentReviewController authorization', () => {
     expect(guard.canActivate(
       context(UserRole.ADMIN, AdminPaymentReviewController.prototype.resolve),
     )).toBe(true);
+  });
+});
+
+describe('PaymentsModule admin controller wiring', () => {
+  it('registers payment listing alongside manual review and public payment routes', () => {
+    expect(Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, PaymentsModule)).toEqual([
+      AdminPaymentsController,
+      AdminPaymentReviewController,
+      PaymentsController,
+    ]);
   });
 });
