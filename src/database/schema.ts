@@ -3,13 +3,15 @@ import {
   decimal,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   AuthProvider,
   UserRole,
@@ -17,7 +19,10 @@ import {
   CourtSurface,
   BookingStatus,
   PaymentStatus,
+  ContactRequestStatus,
+  ContactRequesterType,
 } from '../common/enums';
+import { OFFICIAL_CURRENCY } from '../common/payment.constants';
 
 export const userRoleEnum = pgEnum('user_role', [
   UserRole.ADMIN,
@@ -65,6 +70,28 @@ export const paymentStatusEnum = pgEnum('payment_status', [
   PaymentStatus.COMPLETED,
   PaymentStatus.FAILED,
   PaymentStatus.CANCELLED,
+]);
+export const contactRequestStatusEnum = pgEnum('contact_request_status', [
+  ContactRequestStatus.NEW,
+  ContactRequestStatus.IN_PROGRESS,
+  ContactRequestStatus.RESOLVED,
+]);
+export const contactRequesterTypeEnum = pgEnum('contact_requester_type', [
+  ContactRequesterType.PLAYER,
+  ContactRequesterType.VENUE_OWNER,
+  ContactRequesterType.CONTRACTOR,
+  ContactRequesterType.OTHER,
+]);
+export const PaymentFlow = {
+  HOSTED_CHECKOUT: 'hosted_checkout',
+  DIRECT_CARD: 'direct_card',
+  LEGACY_UNKNOWN: 'legacy_unknown',
+} as const;
+export type PaymentFlow = (typeof PaymentFlow)[keyof typeof PaymentFlow];
+export const paymentFlowEnum = pgEnum('payment_flow', [
+  PaymentFlow.HOSTED_CHECKOUT,
+  PaymentFlow.DIRECT_CARD,
+  PaymentFlow.LEGACY_UNKNOWN,
 ]);
 
 // Better Auth compatible users table
@@ -185,16 +212,17 @@ export const bookings = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     userId: text('user_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'restrict' }),
     courtId: uuid('court_id')
       .notNull()
-      .references(() => courts.id, { onDelete: 'cascade' }),
+      .references(() => courts.id, { onDelete: 'restrict' }),
     bookingDate: timestamp('booking_date').notNull(),
     startTime: text('start_time').notNull(),
     endTime: text('end_time').notNull(),
     status: bookingStatusEnum('status').notNull().default(BookingStatus.DRAFT),
     totalPrice: decimal('total_price', { precision: 10, scale: 2 }).notNull(),
     notes: text('notes'),
+    holdExpiresAt: timestamp('hold_expires_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -212,11 +240,23 @@ export const payments = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     bookingId: uuid('booking_id')
       .notNull()
-      .references(() => bookings.id, { onDelete: 'cascade' }),
+      .references(() => bookings.id, { onDelete: 'restrict' }),
     mpPaymentId: text('mp_payment_id').unique(),
     mpPreferenceId: text('mp_preference_id'),
+    provider: text('provider'),
+    providerCheckoutId: text('provider_checkout_id'),
+    providerPaymentId: text('provider_payment_id'),
+    idempotencyKey: text('idempotency_key'),
+    checkoutUrl: text('checkout_url'),
+    checkoutExpiresAt: timestamp('checkout_expires_at'),
+    paymentFlow: paymentFlowEnum('payment_flow')
+      .notNull()
+      .default(PaymentFlow.LEGACY_UNKNOWN),
+    manualReview: boolean('manual_review').notNull().default(false),
+    manualReviewReason: text('manual_review_reason'),
+    manualReviewAt: timestamp('manual_review_at'),
     amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
-    currency: text('currency').notNull().default('ARS'),
+    currency: text('currency').notNull().default(OFFICIAL_CURRENCY),
     status: paymentStatusEnum('status')
       .notNull()
       .default(PaymentStatus.PENDING),
@@ -233,8 +273,170 @@ export const payments = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => [
-    // getPaymentByBookingId + persistencia del webhook filtran por booking_id.
     index('payments_booking_idx').on(table.bookingId),
+    index('payments_flow_status_idx').on(
+      table.paymentFlow,
+      table.status,
+      table.createdAt.desc(),
+    ),
+    index('payments_manual_review_idx').on(
+      table.manualReview,
+      table.manualReviewAt.desc(),
+      table.id.desc(),
+    ),
+    uniqueIndex('payments_booking_idempotency_unique').on(
+      table.bookingId,
+      table.idempotencyKey,
+    ),
+    uniqueIndex('payments_provider_checkout_unique')
+      .on(table.provider, table.providerCheckoutId)
+      .where(sql`${table.providerCheckoutId} is not null`),
+    uniqueIndex('payments_provider_payment_unique')
+      .on(table.provider, table.providerPaymentId)
+      .where(sql`${table.providerPaymentId} is not null`),
+    index('payments_booking_created_id_idx').on(
+      table.bookingId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    uniqueIndex('payments_open_attempt_unique')
+      .on(table.bookingId)
+      .where(
+        sql.raw(
+          `"payments"."status" in ('${PaymentStatus.PENDING}', '${PaymentStatus.PROCESSING}')`,
+        ),
+      ),
+  ],
+);
+
+export const bookingStatusHistory = pgTable(
+  'booking_status_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'restrict' }),
+    fromStatus: bookingStatusEnum('from_status'),
+    toStatus: bookingStatusEnum('to_status').notNull(),
+    actorType: text('actor_type').notNull(),
+    actorId: text('actor_id'),
+    source: text('source').notNull(),
+    reason: text('reason'),
+    correlationId: text('correlation_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('booking_status_history_booking_created_idx').on(
+      table.bookingId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('booking_status_history_correlation_idx').on(table.correlationId),
+  ],
+);
+
+export const paymentEvents = pgTable(
+  'payment_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payments.id, { onDelete: 'restrict' }),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => bookings.id, { onDelete: 'restrict' }),
+    provider: text('provider').notNull(),
+    providerEventId: text('provider_event_id').notNull(),
+    fromStatus: paymentStatusEnum('from_status'),
+    toStatus: paymentStatusEnum('to_status').notNull(),
+    actorType: text('actor_type').notNull(),
+    actorId: text('actor_id'),
+    source: text('source').notNull(),
+    reason: text('reason'),
+    correlationId: text('correlation_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('payment_events_provider_event_unique').on(
+      table.provider,
+      table.providerEventId,
+    ),
+    index('payment_events_payment_created_idx').on(
+      table.paymentId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('payment_events_booking_created_idx').on(
+      table.bookingId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('payment_events_correlation_idx').on(table.correlationId),
+  ],
+);
+
+export const auditEvents = pgTable(
+  'audit_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    actorType: text('actor_type').notNull(),
+    actorId: text('actor_id'),
+    action: text('action').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id'),
+    source: text('source').notNull(),
+    reason: text('reason'),
+    correlationId: text('correlation_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('audit_events_entity_created_idx').on(
+      table.entityType,
+      table.entityId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('audit_events_actor_created_idx').on(
+      table.actorType,
+      table.actorId,
+      table.createdAt.desc(),
+      table.id.desc(),
+    ),
+    index('audit_events_correlation_idx').on(table.correlationId),
+  ],
+);
+
+/**
+ * Commercial and support enquiries submitted from the public landing page.
+ * Only fields needed to follow up are stored; consent is represented by the
+ * acceptance timestamp instead of retaining extra privacy metadata.
+ */
+export const contactRequests = pgTable(
+  'contact_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requesterType: contactRequesterTypeEnum('requester_type').notNull(),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    phone: text('phone'),
+    organization: text('organization'),
+    message: text('message').notNull(),
+    status: contactRequestStatusEnum('status')
+      .notNull()
+      .default(ContactRequestStatus.NEW),
+    privacyAcceptedAt: timestamp('privacy_accepted_at').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('contact_requests_status_created_idx').on(
+      table.status,
+      table.createdAt,
+    ),
+    index('contact_requests_requester_type_idx').on(table.requesterType),
   ],
 );
 
@@ -281,11 +483,35 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
     references: [courts.id],
   }),
   payments: many(payments),
+  statusHistory: many(bookingStatusHistory),
+  paymentEvents: many(paymentEvents),
 }));
 
-export const paymentsRelations = relations(payments, ({ one }) => ({
+export const paymentsRelations = relations(payments, ({ one, many }) => ({
   booking: one(bookings, {
     fields: [payments.bookingId],
+    references: [bookings.id],
+  }),
+  events: many(paymentEvents),
+}));
+
+export const bookingStatusHistoryRelations = relations(
+  bookingStatusHistory,
+  ({ one }) => ({
+    booking: one(bookings, {
+      fields: [bookingStatusHistory.bookingId],
+      references: [bookings.id],
+    }),
+  }),
+);
+
+export const paymentEventsRelations = relations(paymentEvents, ({ one }) => ({
+  payment: one(payments, {
+    fields: [paymentEvents.paymentId],
+    references: [payments.id],
+  }),
+  booking: one(bookings, {
+    fields: [paymentEvents.bookingId],
     references: [bookings.id],
   }),
 }));
@@ -314,3 +540,15 @@ export type NewBooking = typeof bookings.$inferInsert;
 
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
+
+export type ContactRequest = typeof contactRequests.$inferSelect;
+export type NewContactRequest = typeof contactRequests.$inferInsert;
+
+export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
+export type NewBookingStatusHistory = typeof bookingStatusHistory.$inferInsert;
+
+export type PaymentEventRecord = typeof paymentEvents.$inferSelect;
+export type NewPaymentEventRecord = typeof paymentEvents.$inferInsert;
+
+export type AuditEvent = typeof auditEvents.$inferSelect;
+export type NewAuditEvent = typeof auditEvents.$inferInsert;
