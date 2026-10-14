@@ -27,6 +27,18 @@ describe('BookingsService.findAllAdminPaginated', () => {
       userName: 'Ana Perez',
       courtId: 'court-1',
       courtName: 'Cancha Norte',
+      notes: 'Private scheduling note',
+      user: {
+        email: 'ana.private@example.com',
+        firstName: 'Ana',
+        lastName: 'Perez',
+      },
+      court: {
+        description: 'Internal court description',
+        imageUrl: 'https://example.test/court.png',
+        pricePerHour: '75000.00',
+        surface: 'private court metadata',
+      },
     };
     const page = chain(
       ['from', 'leftJoin', 'leftJoin', 'where', 'orderBy', 'limit'],
@@ -82,9 +94,26 @@ describe('BookingsService.findAllAdminPaginated', () => {
       totalPages: 3,
     });
     const selection = select.mock.calls[0][0] as Record<string, unknown>;
-    expect(selection).not.toHaveProperty('notes');
-    expect(selection).not.toHaveProperty('email');
-    expect(selection).not.toHaveProperty('description');
+    expect(Object.keys(selection).sort()).toEqual(
+      [
+        'id',
+        'bookingDate',
+        'startTime',
+        'endTime',
+        'status',
+        'totalPrice',
+        'createdAt',
+        'userId',
+        'userName',
+        'courtId',
+        'courtName',
+      ].sort(),
+    );
+    expect(result.items[0]).not.toHaveProperty('notes');
+    expect(result.items[0]).not.toHaveProperty('user.email');
+    expect(result.items[0]).not.toHaveProperty('court.description');
+    expect(result.items[0]).not.toHaveProperty('court.imageUrl');
+    expect(result.items[0]).not.toHaveProperty('court.pricePerHour');
     expect(selection.status).toBe(bookings.status);
   });
 
