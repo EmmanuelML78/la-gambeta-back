@@ -1,4 +1,5 @@
 import { ContactRequesterType, ContactRequestStatus } from '../common/enums';
+import { desc } from 'drizzle-orm';
 import { contactRequests } from '../database/schema';
 import { ContactRequestsService } from './contact-requests.service';
 
@@ -41,7 +42,7 @@ describe('ContactRequestsService public intake', () => {
 });
 
 describe('ContactRequestsService administration', () => {
-  it('returns a paginated page and total for admin filtering', async () => {
+  it('uses an id tie-breaker for stable pagination when creation times match', async () => {
     const createdAt = new Date('2026-08-29T12:00:00.000Z');
     const row = {
       id: '00000000-0000-4000-8000-000000000201',
@@ -56,7 +57,8 @@ describe('ContactRequestsService administration', () => {
       createdAt,
       updatedAt: createdAt,
     };
-    const offset = jest.fn().mockResolvedValue([row]);
+    const sameTimeRow = { ...row, id: '00000000-0000-4000-8000-000000000202' };
+    const offset = jest.fn().mockResolvedValue([sameTimeRow, row]);
     const limit = jest.fn().mockReturnValue({ offset });
     const orderBy = jest.fn().mockReturnValue({ limit });
     const dataWhere = jest.fn().mockReturnValue({ orderBy });
@@ -68,13 +70,17 @@ describe('ContactRequestsService administration', () => {
     const service = new ContactRequestsService({ db: { select } } as never);
 
     await expect(service.findAll({ limit: 20, offset: 100 } as never)).resolves.toEqual({
-      items: [row],
+      items: [sameTimeRow, row],
       total: 121,
       limit: 20,
       offset: 100,
     });
     expect(limit).toHaveBeenCalledWith(20);
     expect(offset).toHaveBeenCalledWith(100);
+    expect(orderBy).toHaveBeenCalledWith(
+      desc(contactRequests.createdAt),
+      desc(contactRequests.id),
+    );
   });
 
   it('returns a contact request by id and applies a validated status transition', async () => {
