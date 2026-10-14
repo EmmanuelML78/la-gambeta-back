@@ -1,7 +1,7 @@
 import {
   IsNotEmpty,
-  IsNumber,
   IsOptional,
+  IsNumber,
   IsString,
   IsUUID,
   Min,
@@ -18,24 +18,23 @@ export class CreatePreferenceDto {
   @IsUUID()
   bookingId: string;
 
-  @ApiProperty({
-    description: 'Payment amount',
+  @ApiPropertyOptional({
+    description: 'Legacy client amount; accepted for compatibility and ignored by the server',
     example: 5000.5,
     minimum: 1,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
   @Min(1)
-  amount: number;
+  amount?: number;
 
   @ApiPropertyOptional({
-    description: 'Currency code (default ARS)',
+    description: 'Legacy client currency; accepted for compatibility and ignored by the server',
     example: 'ARS',
-    default: 'ARS',
   })
   @IsOptional()
   @IsString()
-  currency?: string = 'ARS';
+  currency?: string;
 
   @ApiPropertyOptional({
     description: 'Number of installments',

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import {
   CardChargeInput,
@@ -39,6 +39,7 @@ export class MercadoPagoAdapter implements PaymentProvider {
   }
 
   async createCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+    const checkoutExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
     const response = await this.preference.create({
       body: {
         items: [
@@ -71,12 +72,16 @@ export class MercadoPagoAdapter implements PaymentProvider {
         notification_url: input.notificationUrl,
         statement_descriptor: 'LA GAMBETA',
         external_reference: input.bookingId,
+        metadata: {
+          payment_attempt_id: input.paymentAttemptId,
+          booking_id: input.bookingId,
+          idempotency_key: input.idempotencyKey,
+        },
         expires: true,
         expiration_date_from: new Date().toISOString(),
-        expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        expiration_date_to: checkoutExpiresAt.toISOString(),
       },
-      // Idempotencia REAL: una key única por request (antes era 'abc' fijo).
-      requestOptions: { idempotencyKey: randomUUID() },
+      requestOptions: { idempotencyKey: input.idempotencyKey },
     });
 
     if (!response.id || !response.init_point) {
@@ -87,6 +92,7 @@ export class MercadoPagoAdapter implements PaymentProvider {
       providerRef: response.id,
       initPoint: response.init_point,
       sandboxInitPoint: response.sandbox_init_point,
+      checkoutExpiresAt,
     };
   }
 
@@ -101,9 +107,13 @@ export class MercadoPagoAdapter implements PaymentProvider {
         issuer_id: input.issuerId ? parseInt(input.issuerId, 10) : undefined,
         payer: input.payer ?? {},
         external_reference: input.bookingId,
-        metadata: { booking_id: input.bookingId },
+        metadata: {
+          payment_attempt_id: input.paymentAttemptId,
+          booking_id: input.bookingId,
+          idempotency_key: input.idempotencyKey,
+        },
       },
-      requestOptions: { idempotencyKey: randomUUID() },
+      requestOptions: { idempotencyKey: input.idempotencyKey },
     });
 
     return this.toPaymentEvent(
@@ -163,7 +173,11 @@ export class MercadoPagoAdapter implements PaymentProvider {
   }
 
   async parseWebhookEvent(ctx: WebhookContext): Promise<PaymentEvent | null> {
-    const body = (ctx.body ?? {}) as { type?: string; data?: { id?: string } };
+    const body = (ctx.body ?? {}) as {
+      id?: string | number;
+      type?: string;
+      data?: { id?: string };
+    };
     const type = (ctx.query['type'] as string) ?? body.type;
     if (type !== 'payment') {
       return null;
@@ -179,17 +193,28 @@ export class MercadoPagoAdapter implements PaymentProvider {
       id: String(dataId),
     })) as unknown as Record<string, unknown>;
     const bookingId = (mpPayment.external_reference as string) ?? '';
-    return this.toPaymentEvent(mpPayment, bookingId);
+    return this.toPaymentEvent(
+      mpPayment,
+      bookingId,
+      body.id != null ? String(body.id) : undefined,
+    );
   }
 
   private toPaymentEvent(
     mp: Record<string, unknown>,
     bookingId: string,
+    providerEventId?: string,
   ): PaymentEvent {
     const dateApproved = mp.date_approved as string | undefined;
+    const metadata = (mp.metadata ?? {}) as Record<string, unknown>;
+    const paymentAttemptId =
+      metadata.payment_attempt_id ?? metadata.paymentAttemptId;
     return {
+      providerEventId,
       providerPaymentId: String(mp.id),
       bookingId,
+      paymentAttemptId:
+        typeof paymentAttemptId === 'string' ? paymentAttemptId : undefined,
       status: this.mapStatus(mp.status as string),
       amount: mp.transaction_amount as number | undefined,
       currency: mp.currency_id as string | undefined,

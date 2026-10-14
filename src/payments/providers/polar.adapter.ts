@@ -77,6 +77,7 @@ export class PolarAdapter implements PaymentProvider {
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
+        'Idempotency-Key': input.idempotencyKey,
       },
       body: JSON.stringify({
         products: [this.productId],
@@ -89,7 +90,11 @@ export class PolarAdapter implements PaymentProvider {
         success_url: this.withBookingId(input.successUrl, input.bookingId),
         customer_email: input.payerEmail,
         // Único hilo de vuelta al dominio: Polar copia metadata a la orden.
-        metadata: { bookingId: input.bookingId },
+        metadata: {
+          paymentAttemptId: input.paymentAttemptId,
+          bookingId: input.bookingId,
+          idempotencyKey: input.idempotencyKey,
+        },
       }),
     });
 
@@ -165,11 +170,16 @@ export class PolarAdapter implements PaymentProvider {
     // NETO sin impuestos. Con IVA colombiano al 19% el neto da 84% del precio y
     // el guard de monto del dominio rechazaba un pago correcto.
     const paid = order.total_amount ?? order.amount;
+    const rawAttemptId = order.metadata?.paymentAttemptId;
+    const webhookId = this.header(ctx, 'webhook-id');
 
     // A diferencia de MercadoPago no re-consultamos: Standard Webhooks firma el
     // body completo, así que el payload YA es auténtico e íntegro.
     return Promise.resolve({
       providerPaymentId: order.id,
+      providerEventId: webhookId,
+      paymentAttemptId:
+        typeof rawAttemptId === 'string' ? rawAttemptId : undefined,
       bookingId,
       status,
       amount: paid != null ? paid / 100 : undefined,

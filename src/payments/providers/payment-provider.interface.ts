@@ -13,7 +13,9 @@ export type NormalizedPaymentStatus =
   'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' | 'refunded';
 
 export interface CheckoutInput {
+  paymentAttemptId: string;
   bookingId: string;
+  idempotencyKey: string;
   amount: number;
   currency: string;
   description: string;
@@ -30,11 +32,15 @@ export interface CheckoutResult {
   providerRef: string;
   initPoint: string;
   sandboxInitPoint?: string;
+  checkoutExpiresAt?: Date;
 }
 
 export interface CardChargeInput {
+  paymentAttemptId: string;
   bookingId: string;
+  idempotencyKey: string;
   amount: number;
+  currency: string;
   token: string;
   installments?: number;
   paymentMethodId?: string;
@@ -61,8 +67,11 @@ export interface WebhookContext {
 
 /** Evento de pago normalizado que el dominio persiste. */
 export interface PaymentEvent {
+  providerEventId?: string;
   providerPaymentId: string;
-  bookingId: string;
+  providerCheckoutId?: string;
+  paymentAttemptId?: string;
+  bookingId?: string;
   status: NormalizedPaymentStatus;
   amount?: number;
   currency?: string;

@@ -140,3 +140,42 @@ describe('PolarAdapter.parseWebhookEvent', () => {
     expect(await adapter.parseWebhookEvent(ctx)).toBeNull();
   });
 });
+
+describe('PolarAdapter.createCheckout idempotency', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('forwards the durable attempt identity and idempotency key', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: 'checkout-1', url: 'https://checkout.test/1' }),
+    } as Response);
+    const adapter = buildAdapter();
+
+    await adapter.createCheckout({
+      paymentAttemptId: '223e4567-e89b-12d3-a456-426614174000',
+      bookingId: BOOKING_ID,
+      idempotencyKey: 'checkout-key-0001',
+      amount: 90000,
+      currency: 'COP',
+      description: 'Booking checkout',
+      successUrl: 'https://app.test/payment/success',
+      failureUrl: 'https://app.test/payment/failure',
+      pendingUrl: 'https://app.test/payment/pending',
+      notificationUrl: 'https://api.test/payments/webhook',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Idempotency-Key': 'checkout-key-0001',
+        }),
+        body: expect.stringContaining(
+          '"paymentAttemptId":"223e4567-e89b-12d3-a456-426614174000"',
+        ),
+      }),
+    );
+  });
+});

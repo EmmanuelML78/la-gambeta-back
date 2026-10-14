@@ -10,14 +10,16 @@ import {
   HttpStatus,
   UnauthorizedException,
   RawBodyRequest,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiHeader,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { PaymentsService } from './payments.service';
 import { CreatePreferenceDto, ProcessPaymentDto } from './dto';
 import { Public } from '../auth/decorators/public.decorator';
@@ -42,6 +44,7 @@ export class PaymentsController {
     schema: {
       type: 'object',
       properties: {
+        paymentAttemptId: { type: 'string' },
         preferenceId: { type: 'string' },
         initPoint: { type: 'string' },
         sandboxInitPoint: { type: 'string' },
@@ -50,15 +53,22 @@ export class PaymentsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'Booking not found' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   async createPreference(
     @Body() createPreferenceDto: CreatePreferenceDto,
     @CurrentUser() user: User,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     this.logger.log(
       `Creating preference for user: ${user.id}, booking: ${createPreferenceDto.bookingId}`,
     );
 
-    return await this.paymentsService.createPreference(createPreferenceDto);
+    return await this.paymentsService.createPreference(
+      createPreferenceDto,
+      user.id,
+      user.role,
+      idempotencyKey,
+    );
   }
 
   @Post('process-payment')
@@ -78,15 +88,22 @@ export class PaymentsController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 404, description: 'Booking not found' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   async processPayment(
     @Body() processPaymentDto: ProcessPaymentDto,
     @CurrentUser() user: User,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     this.logger.log(
       `Processing payment for user: ${user.id}, booking: ${processPaymentDto.bookingId}`,
     );
 
-    return await this.paymentsService.processPayment(processPaymentDto);
+    return await this.paymentsService.processPayment(
+      processPaymentDto,
+      user.id,
+      user.role,
+      idempotencyKey,
+    );
   }
 
   @Post('webhook')

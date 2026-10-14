@@ -4,6 +4,7 @@ import {
   Get,
   Put,
   Body,
+  Headers,
   Param,
   Logger,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto';
@@ -38,6 +40,7 @@ export class ReservationsController {
         preference: {
           type: 'object',
           properties: {
+            paymentAttemptId: { type: 'string' },
             preferenceId: { type: 'string' },
             initPoint: { type: 'string' },
             sandboxInitPoint: { type: 'string' },
@@ -51,9 +54,11 @@ export class ReservationsController {
     description: 'Bad request - invalid data or time slot unavailable',
   })
   @ApiResponse({ status: 404, description: 'Court not found' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
   async createReservation(
     @Body() createReservationDto: CreateReservationDto,
     @CurrentUser() user: User,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
   ) {
     this.logger.log(
       `Creating reservation for user: ${user.id}, court: ${createReservationDto.courtId}`,
@@ -61,7 +66,9 @@ export class ReservationsController {
 
     return await this.reservationsService.createReservation(
       user.id,
+      user.role,
       createReservationDto,
+      idempotencyKey,
     );
   }
 

@@ -8,7 +8,7 @@ import {
 import { eq } from 'drizzle-orm';
 import { DrizzleService } from '../database/drizzle.service';
 import { bookings, Booking } from '../database/schema';
-import { BookingStatus, PaymentStatus } from '../common/enums';
+import { BookingStatus, PaymentStatus, UserRole } from '../common/enums';
 import { PaymentsService } from '../payments/payments.service';
 import { BookingsService } from '../bookings/bookings.service';
 import { CreateReservationDto } from './dto';
@@ -31,10 +31,13 @@ export class ReservationsService {
 
   async createReservation(
     userId: string,
+    userRole: UserRole,
     dto: CreateReservationDto,
+    idempotencyKey: string | undefined,
   ): Promise<{
     booking: Booking;
-    preference: {
+      preference: {
+        paymentAttemptId: string;
       preferenceId: string;
       initPoint: string;
       sandboxInitPoint: string;
@@ -54,12 +57,15 @@ export class ReservationsService {
     );
 
     try {
-      const preference = await this.paymentsService.createPreference({
-        bookingId: created.id,
-        amount: parseFloat(created.totalPrice), // el server lo recalcula del booking
-        description: `Reserva ${dto.bookingDate} ${dto.startTime}-${dto.endTime}`,
-        // Sin currency: la define PaymentsService en un solo lugar.
-      });
+      const preference = await this.paymentsService.createPreference(
+        {
+          bookingId: created.id,
+          description: `Reserva ${dto.bookingDate} ${dto.startTime}-${dto.endTime}`,
+        },
+        userId,
+        userRole,
+        idempotencyKey,
+      );
 
       const booking = await this.getBookingById(created.id);
       this.logger.log(`Reservation created: ${created.id} for user: ${userId}`);
@@ -89,20 +95,43 @@ export class ReservationsService {
     if (booking.userId !== userId) {
       throw new ForbiddenException('Unauthorized to confirm this booking');
     }
-    if (booking.status === BookingStatus.ACTIVE) {
-      return booking; // el webhook ya lo confirmó
-    }
+    if (booking.status === BookingStatus.ACTIVE) return booking;
 
     const payment = await this.paymentsService.getPaymentByBookingId(bookingId);
     if (!payment || payment.status !== PaymentStatus.SUCCEEDED) {
       throw new BadRequestException('Payment not completed');
     }
 
-    const [updated] = await this.drizzleService.db
-      .update(bookings)
-      .set({ status: BookingStatus.ACTIVE, updatedAt: new Date() })
-      .where(eq(bookings.id, bookingId))
-      .returning();
+    const payableStates = [
+      BookingStatus.DRAFT,
+      BookingStatus.CONFIRMED,
+      BookingStatus.PENDING,
+      BookingStatus.PROCESSING,
+    ];
+    const updated = await this.drizzleService.db.transaction(async (tx) => {
+      const [lockedBooking] = await tx
+        .select()
+        .from(bookings)
+        .where(eq(bookings.id, bookingId))
+        .limit(1)
+        .for('update');
+      if (!lockedBooking) throw new NotFoundException('Booking not found');
+      if (lockedBooking.userId !== userId) {
+        throw new ForbiddenException('Unauthorized to confirm this booking');
+      }
+      if (lockedBooking.status === BookingStatus.ACTIVE) return lockedBooking;
+      if (!payableStates.includes(lockedBooking.status)) {
+        throw new BadRequestException(
+          'Booking cannot be confirmed in its current status',
+        );
+      }
+      const [confirmed] = await tx
+        .update(bookings)
+        .set({ status: BookingStatus.ACTIVE, updatedAt: new Date() })
+        .where(eq(bookings.id, bookingId))
+        .returning();
+      return confirmed;
+    });
 
     this.logger.log(`Reservation confirmed: ${bookingId}`);
     return updated;
