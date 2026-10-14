@@ -14,7 +14,11 @@ import {
   users,
   venues,
 } from '../database/schema';
-import { projectSafeAdminPaymentAudit, projectSafeAdminPaymentEvent } from './admin-payment-evidence';
+import {
+  LEGACY_LATE_PAYMENT_RECONCILIATION_ACTION,
+  projectSafeAdminPaymentAudit,
+  projectSafeAdminPaymentEvent,
+} from './admin-payment-evidence';
 import { buildAdminPaymentConditions, buildAdminPaymentOrder, validateAdminPaymentDateRange } from './admin-payment-query';
 import { buildPaymentFinancialSummarySelection } from './payment-financial-summary';
 import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
@@ -103,14 +107,22 @@ export class AdminPaymentsService {
         .where(eq(payments.currency, OFFICIAL_CURRENCY))
         .groupBy(payments.status),
       this.drizzle.db
-        .select({ total: sql<number>`count(*)::int` })
+        .select({ total: sql<number>`count(distinct ${auditEvents.id})::int` })
         .from(auditEvents)
-        .innerJoin(payments, eq(auditEvents.entityId, sql`${payments.id}::text`))
-        .where(and(
-          eq(auditEvents.action, LATE_PAYMENT_RECONCILIATION_ACTION),
-          eq(auditEvents.entityType, 'payment'),
-          eq(payments.currency, OFFICIAL_CURRENCY),
-        )),
+        .innerJoin(payments, or(
+          and(
+            eq(auditEvents.action, LATE_PAYMENT_RECONCILIATION_ACTION),
+            eq(auditEvents.entityType, 'payment'),
+            eq(auditEvents.entityId, sql`${payments.id}::text`),
+          ),
+          and(
+            eq(auditEvents.action, LEGACY_LATE_PAYMENT_RECONCILIATION_ACTION),
+            eq(auditEvents.entityType, 'booking'),
+            eq(auditEvents.entityId, sql`${payments.bookingId}::text`),
+            eq(auditEvents.correlationId, sql`'attempt:' || ${payments.id}::text`),
+          ),
+        ))
+        .where(eq(payments.currency, OFFICIAL_CURRENCY)),
     ]);
     const aggregate = totals[0] ?? {
       grossAmount: '0',
