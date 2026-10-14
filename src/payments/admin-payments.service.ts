@@ -20,6 +20,20 @@ import { buildPaymentFinancialSummarySelection } from './payment-financial-summa
 import { LATE_PAYMENT_RECONCILIATION_ACTION } from './payment-reconciliation.constants';
 import type { AdminPaymentDetailDto, AdminPaymentPageDto, AdminPaymentQueryDto, AdminPaymentSummaryDto } from './dto';
 
+const UNCERTAIN_PROVIDER_REASONS = new Set([
+  'Provider outcome is uncertain; reconcile before retrying',
+  'Provider checkout outcome is uncertain; reconcile before retrying',
+]);
+
+function projectManualReviewReasonCode(reason: string | null): AdminPaymentDetailDto['reconciliation']['reasonCode'] {
+  if (reason && UNCERTAIN_PROVIDER_REASONS.has(reason)) return 'provider_outcome_uncertain';
+  const latePayment = reason?.match(/^Payment succeeded after booking entered (.+); manual reconciliation required$/);
+  if (latePayment && Object.values(BookingStatus).includes(latePayment[1] as BookingStatus)) {
+    return 'late_payment_requires_reconciliation';
+  }
+  return 'manual_review_required';
+}
+
 @Injectable()
 export class AdminPaymentsService {
   constructor(private readonly drizzle: DrizzleService) {}
@@ -143,6 +157,7 @@ export class AdminPaymentsService {
         installments: payments.installments,
         dateApproved: payments.dateApproved,
         manualReview: payments.manualReview,
+        manualReviewReason: payments.manualReviewReason,
         bookingId: bookings.id,
         bookingStatus: bookings.status,
         bookingDate: bookings.bookingDate,
@@ -192,7 +207,11 @@ export class AdminPaymentsService {
         .from(auditEvents)
         .where(or(
           and(eq(auditEvents.entityType, 'payment'), eq(auditEvents.entityId, row.id)),
-          and(eq(auditEvents.entityType, 'booking'), eq(auditEvents.correlationId, `attempt:${row.id}`)),
+          and(
+            eq(auditEvents.entityType, 'booking'),
+            eq(auditEvents.entityId, row.bookingId),
+            eq(auditEvents.correlationId, `attempt:${row.id}`),
+          ),
         ))
         .orderBy(desc(auditEvents.createdAt), desc(auditEvents.id)),
       this.drizzle.db
@@ -230,7 +249,7 @@ export class AdminPaymentsService {
       audits,
       reconciliation: {
         status: reconciliationRequired ? 'requires_attention' : 'no_flags',
-        reasonCode: reconciliationRequired ? 'late_payment_requires_reconciliation' : null,
+        reasonCode: reconciliationRequired ? projectManualReviewReasonCode(row.manualReviewReason) : null,
       },
       refundCapability: {
         status: 'unavailable',

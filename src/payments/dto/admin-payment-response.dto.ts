@@ -57,7 +57,7 @@ export interface AdminPaymentDetailDto extends AdminPaymentListItemDto {
   audits: AdminPaymentAuditProjection[];
   reconciliation: {
     status: 'no_flags' | 'requires_attention';
-    reasonCode: 'late_payment_requires_reconciliation' | null;
+    reasonCode: 'late_payment_requires_reconciliation' | 'provider_outcome_uncertain' | 'manual_review_required' | null;
   };
   refundCapability: {
     status: 'unavailable';
