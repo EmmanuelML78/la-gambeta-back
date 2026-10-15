@@ -16,11 +16,13 @@ Add reproducible pull-request checks to the backend baseline before integrating 
 ## Tasks
 
 - [x] **CI-1 — Baseline quality job.** Added a GitHub Actions workflow for pull requests and baseline pushes, using frozen pnpm install, check-only lint, Jest, TypeScript, and build. Route: delegated writer because the workflow and documentation are coordinated non-trivial edits. Acceptance: no mutating lint/format command, no secrets, no `pull_request_target`; workflow parsed and local equivalents passed. Commit: `942d07dc650f19d0499a2b1791df0e52db145ddc`.
-- [ ] **CI-2 — Isolated database job.** Add PostgreSQL 17 migration and auth integration checks with synthetic loopback-only credentials; document how CI checks run and why stale e2e remains excluded. Route: delegated writer, same worktree. Acceptance: database name and host satisfy the test's guard; migrations run before auth integration; local DB run is recorded as passed or explicitly unrun. Commit: pending.
+- [x] **CI-2 — Isolated database job.** Added PostgreSQL 17 migration and auth integration checks with synthetic loopback-only credentials; documented how CI checks run and why stale e2e remains excluded. Route: delegated writer, same worktree. Acceptance: database name and host satisfy the test's guard; the workflow lists migrations before auth integration; the local database run is explicitly unrun because no local PostgreSQL listener is available. Commit: `28e165924ff3ec0eeedc5dbceb39dbd8afe15f34`.
 
 ## Verification and progress
 
 - Baseline local: check-only ESLint passed; `tsc --noEmit --incremental false` passed; Jest 7 suites/25 tests passed; Nest build passed, using an ignored junction to existing `back/node_modules` (no install).
-- CI service and hosted runner: not run yet. Local isolated PostgreSQL availability: not yet established.
+- CI service and hosted runner: not run yet. No local PostgreSQL listener was available on port 5432, so migration and auth integration execution remain unrun.
 - CI-1 evidence: YAML parsed with the existing shared `js-yaml` package; `git diff --cached --check` passed. Runtime harness: not applicable to this workflow configuration until GitHub runs it.
-- Next: implement CI-2. The documented CI-1 result is staged for the CI-2 work-unit commit.
+- CI-2 evidence: workflow YAML, test script, loopback database guard values, and migration-before-test ordering parsed; auth TypeScript preloads and `AppModule` import passed; check-only ESLint, Jest (7 suites/25 tests), TypeScript, and Nest build passed; `git diff --cached --check` passed. Runtime database harness: unrun, not a PASS.
+- Running authored change count from CI-1 and CI-2 commits: 105 additions + 3 deletions (108 total); no chain strategy required under `ask-on-risk`.
+- Next: run hosted CI on a future PR and inspect both jobs. Existing admin PR branches do not automatically inherit this new workflow; coordinate integration before treating their check counts as sufficient.
