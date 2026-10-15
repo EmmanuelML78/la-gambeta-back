@@ -109,19 +109,19 @@ Consulta los contratos exactos y DTO en Swagger.
 ## Comandos de calidad
 
 ```bash
-pnpm test --runInBand
+pnpm exec jest --runInBand --no-cache
 pnpm exec eslint "{src,apps,libs,test}/**/*.ts"
 pnpm exec tsc --noEmit --incremental false
 pnpm build
-pnpm audit --prod
 ```
 
-El flujo de CI ejecuta estas comprobaciones sin modificar archivos y, en un
+El flujo de CI ejecuta estas cuatro comprobaciones sin reescribir el código fuente y, en un
 trabajo independiente, aplica las migraciones sobre PostgreSQL 17 antes de
 ejecutar `pnpm test:auth:integration`. Este último usa únicamente la base de
 pruebas `la_gambeta_auth_e2e` en loopback y credenciales sintéticas. El objetivo
 `pnpm test:e2e` no está habilitado en CI: su fixture todavía espera la antigua
 respuesta `Hello World!` en `/` y debe actualizarse antes de usarlo como gate.
+Ejecuta `pnpm audit --prod` por separado; la auditoría no forma parte de CI.
 
 ## Despliegue
 
